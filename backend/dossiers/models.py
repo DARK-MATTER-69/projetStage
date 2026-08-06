@@ -271,7 +271,7 @@ class ValidationDossier(models.Model):
     
     
     
-    class DocumentDossier(models.Model):
+class DocumentDossier(models.Model):
         """
         Représente un document physique numérisé et joint au dossier.
         Le commercial scanne et uploade les pièces remises par le client
