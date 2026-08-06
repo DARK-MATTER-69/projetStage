@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import Utilisateur
+from decimal import Decimal
 
 
 class Client(models.Model):
@@ -25,6 +26,12 @@ class Client(models.Model):
     nom             = models.CharField(max_length=100, verbose_name='Nom')
     prenom          = models.CharField(max_length=100, verbose_name='Prénom')
     date_naissance  = models.DateField(verbose_name='Date de naissance')
+    date_versement_salaire = models.PositiveIntegerField(
+    null=True,
+    blank=True,
+    verbose_name='Jour de versement du salaire',
+    help_text='Jour habituel de réception du salaire (ex: 15 pour le 15 du mois)'
+    )
     lieu_naissance  = models.CharField(max_length=100, verbose_name='Lieu de naissance')
     nationalite     = models.CharField(max_length=100, default='Camerounaise')
     numero_cni      = models.CharField(max_length=50, unique=True, verbose_name='Numéro CNI')
@@ -132,7 +139,21 @@ class Dossier(models.Model):
         decimal_places=2,
         verbose_name='Montant sollicité (FCFA)'
     )
+    
     duree_mois          = models.PositiveIntegerField(verbose_name='Durée (mois)')
+    date_debut_prelevement = models.DateField(
+    null=True,
+    blank=True,
+    verbose_name='Date de début de prélèvement',
+    help_text='Date convenue avec le client pour le début des remboursements'
+    )
+    jour_prelevement = models.PositiveIntegerField(
+    null=True,
+    blank=True,
+    verbose_name='Jour de prélèvement mensuel',
+    help_text='Jour du mois auquel le client sera prélevé (ex: 25 pour le 25 de chaque mois)'
+    )
+    
     objet_financement   = models.TextField(verbose_name='Objet du financement')
     appreciation        = models.TextField(
         verbose_name='Appréciation du commercial',
@@ -190,6 +211,24 @@ class Dossier(models.Model):
             charges_totales = self.client.charges_mensuelles + self.mensualite_estimee
             return round((charges_totales / salaire) * 100, 2)
         return 0
+    @property
+    def traite_max_autorisee(self):
+        """
+        Calcule la traite mensuelle maximale autorisée pour ce client.
+        Formule : (Salaire net x Quotité COBAC 33%) - Crédits en cours
+        """
+        quotite         = Decimal('0.33')
+        capacite_brute  = self.client.salaire_net * quotite
+        traite_max      = capacite_brute - self.client.credits_en_cours
+        return max(traite_max, Decimal('0'))
+
+    @property
+    def est_traite_acceptable(self):
+        """
+        Vérifie si la mensualité demandée est inférieure
+        à la traite maximale autorisée.
+        """
+        return self.mensualite_estimee <= self.traite_max_autorisee
 
 
 class ValidationDossier(models.Model):
