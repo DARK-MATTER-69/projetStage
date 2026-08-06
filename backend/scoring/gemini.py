@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
 
 
@@ -11,8 +12,8 @@ class ServiceGemini:
 
     def __init__(self):
         """Configure le client Gemini avec la clé API du settings."""
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model  = 'gemini-2.0-flash'
 
     def _construire_prompt(self, dossier, resultats_scoring):
         """
@@ -83,7 +84,10 @@ Limite ta réponse à 250 mots maximum.
         """
         try:
             prompt   = self._construire_prompt(dossier, resultats_scoring)
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+            model    = self.model,
+            contents = prompt
+            )
             return response.text.strip()
 
         except Exception as e:
@@ -121,7 +125,10 @@ de la durée, apport personnel, caution solidaire, etc.
 Sois bref et précis. Maximum 100 mots.
 """
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+            model    = self.model,
+            contents = prompt
+            )
             return response.text.strip()
         except Exception:
             return ''
