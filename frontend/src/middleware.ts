@@ -9,28 +9,28 @@ const ROUTES_PUBLIQUES = ["/login"];
  * La vérification fine des rôles est faite côté composant.
  */
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // const { pathname } = request.nextUrl;
 
-  // Laisser passer les routes publiques
-  if (ROUTES_PUBLIQUES.includes(pathname)) {
-    return NextResponse.next();
-  }
+  // // Laisser passer les routes publiques
+  // if (ROUTES_PUBLIQUES.includes(pathname)) {
+  //   return NextResponse.next();
+  // }
 
-  // Vérifier la présence du store dans les cookies
-  const authCookie = request.cookies.get("sce-auth");
+  // // Vérifier la présence du store dans les cookies
+  // const authCookie = request.cookies.get("sce-auth");
 
-  if (!authCookie) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  // if (!authCookie) {
+  //   return NextResponse.redirect(new URL("/login", request.url));
+  // }
 
-  try {
-    const auth = JSON.parse(authCookie.value);
-    if (!auth?.state?.estConnecte || !auth?.state?.accessToken) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-  } catch {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  // try {
+  //   const auth = JSON.parse(authCookie.value);
+  //   if (!auth?.state?.estConnecte || !auth?.state?.accessToken) {
+  //     return NextResponse.redirect(new URL("/login", request.url));
+  //   }
+  // } catch {
+  //   return NextResponse.redirect(new URL("/login", request.url));
+  // }
 
   return NextResponse.next();
 }
