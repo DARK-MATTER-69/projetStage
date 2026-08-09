@@ -10,6 +10,7 @@ interface Utilisateur {
   email:      string;
   role:       string;
   agence:     string;
+  telephone:  string;
 }
 
 interface JwtPayload {
