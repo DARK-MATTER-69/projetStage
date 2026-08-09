@@ -414,7 +414,6 @@ export default function DetailDossierPage() {
 
           </div>
         </div>
-      </div>
     </MainLayout>
   );
 }
