@@ -1,50 +1,69 @@
 from .moteur import MoteurScoring
-from .gemini import ServiceGemini
 from .models import ScoreCredit
 
 
 def calculer_et_sauvegarder_score(dossier):
     """
-    Orchestre le calcul du score, la prédiction ML
-    et la génération de l'analyse Gemini.
-    Crée ou met à jour le ScoreCredit associé au dossier.
+    Met en oeuvre le calcul du score règles métier + prédiction ML.
+    Aucun appel externe requis.
 
     :param dossier: Instance de dossiers.models.Dossier
-    :return: Instance de scoring.models.ScoreCredit
+    :return:        Instance de scoring.models.ScoreCredit
     """
-    # Calcul du score par règles métier
+    # Calcul score règles métier
     moteur    = MoteurScoring(dossier)
     resultats = moteur.calculer()
 
-    # Tentative de prédiction ML si le modèle existe
+    score_final = resultats['score']
+
+    # Prédiction ML si le modèle est entraîné
     try:
         from .ml.prediction import PredicteurScoring
-        predicteur       = PredicteurScoring()
-        prediction_ml    = predicteur.predire(
-            type('obj', (object,), resultats)(),
-            dossier
+        predicteur    = PredicteurScoring()
+        prediction_ml = predicteur.predire(dossier)  # on passe le dossier directement
+
+        # Score final = 50% règles métier + 50% ML
+        score_final = round(
+            (resultats['score'] * 0.5) +
+            (prediction_ml['proba_remboursement'] * 0.5)
         )
-        # Score final = moyenne pondérée règles (50%) + ML (50%)
-        score_ml = prediction_ml['proba_remboursement'] / 2
-        score_regles = resultats['score'] / 2
-        resultats['score'] = round(score_regles + score_ml)
 
     except FileNotFoundError:
-        # Modèle pas encore entraîné, on utilise uniquement les règles
+        # Modèle pas encore entraîné → score règles métier uniquement
         pass
 
-    # Génération de l'analyse Gemini
-    gemini     = ServiceGemini()
-    analyse    = gemini.generer_analyse(dossier, resultats)
-    conditions = gemini.generer_conditions(dossier, resultats)
+    # Recalcul niveau risque et décision selon score final
+    if score_final >= 80:
+        niveau_risque = 'FAIBLE'
+    elif score_final >= 60:
+        niveau_risque = 'MOYEN'
+    elif score_final >= 40:
+        niveau_risque = 'ELEVE'
+    else:
+        niveau_risque = 'CRITIQUE'
 
-    # Sauvegarde en base
+    if score_final >= 70:
+        decision = 'FAVORABLE'
+    elif score_final >= 50:
+        decision = 'CONDITIONNEL'
+    else:
+        decision = 'DEFAVORABLE'
+
     score, _ = ScoreCredit.objects.update_or_create(
         dossier=dossier,
         defaults={
-            **resultats,
-            'recommandation_ia':    analyse,
-            'conditions_proposees': conditions,
+            'score':                        score_final,
+            'niveau_risque':                niveau_risque,
+            'decision_ia':                  decision,
+            'taux_endettement':             resultats['taux_endettement'],
+            'ratio_mensualite_salaire':     resultats['ratio_mensualite_salaire'],
+            'delai_securite':               resultats['delai_securite'],
+            'score_stabilite_emploi':       resultats['score_stabilite_emploi'],
+            'score_capacite_remboursement': resultats['score_capacite_remboursement'],
+            'score_profil_client':          resultats['score_profil_client'],
+            'score_dossier':                resultats['score_dossier'],
+            'recommandation':   resultats['recommandation'],
+            'conditions':       resultats['conditions'],
         }
     )
 

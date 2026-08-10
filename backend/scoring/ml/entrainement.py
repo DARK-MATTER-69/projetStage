@@ -25,16 +25,15 @@ CHEMIN_MODELE = os.path.join(
 
 def extraire_features(score, dossier):
     """
-    Extrait les features d'un dossier et son score
-    pour l'entraînement du modèle.
+    Extrait les features d'un dossier pour l'entraînement du modèle.
+    Doit être identique à extraire_features_dossier() dans prediction.py.
 
-    :param score: Instance de scoring.models.ScoreCredit
+    :param score:   Instance de scoring.models.ScoreCredit
     :param dossier: Instance de dossiers.models.Dossier
-    :return: dict des features
+    :return:        dict des features
     """
     client = dossier.client
 
-    # Encodage type employeur
     types_employeur = {
         'FONCTIONNAIRE': 5,
         'RETRAITE':      4,
@@ -44,22 +43,26 @@ def extraire_features(score, dossier):
         'AUTRE':         0,
     }
 
+    salaire    = float(client.salaire_net)
+    mensualite = float(dossier.mensualite_estimee)
+    traite_max = float(dossier.traite_max_autorisee)
+
+    taux_endettement = float(score.taux_endettement)
+    ratio_mensualite = float(score.ratio_mensualite_salaire)
+    delai_securite   = score.delai_securite
+
     return {
-        'score_regles':              score.score,
-        'taux_endettement':          float(score.taux_endettement),
-        'ratio_mensualite_salaire':  float(score.ratio_mensualite_salaire),
-        'delai_securite':            score.delai_securite,
-        'score_stabilite_emploi':    score.score_stabilite_emploi,
-        'score_capacite_remboursement': score.score_capacite_remboursement,
-        'score_profil_client':       score.score_profil_client,
-        'score_dossier':             score.score_dossier,
+        'taux_endettement':          taux_endettement,
+        'ratio_mensualite_salaire':  ratio_mensualite,
+        'delai_securite':            delai_securite,
         'anciennete':                client.anciennete,
         'type_employeur_encode':     types_employeur.get(client.type_employeur, 0),
-        'salaire_net':               float(client.salaire_net),
+        'salaire_net':               salaire,
         'montant_sollicite':         float(dossier.montant_sollicite),
         'duree_mois':                dossier.duree_mois,
         'necessite_comite':          int(dossier.necessite_comite),
         'credits_en_cours':          float(client.credits_en_cours),
+        'mensualite_vs_traite':      (mensualite / traite_max) if traite_max > 0 else 2,
     }
 
 
@@ -71,26 +74,25 @@ def generer_label(score):
     Labels :
         1 = a remboursé sans problème
         0 = a fait défaut ou remboursement difficile
-
-    :param score: Instance de scoring.models.ScoreCredit
-    :return: int 0 ou 1
     """
+    import random
+
     s = score.score
 
-    # Probabilité de remboursement basée sur le score
     if s >= 80:
-        probabilite_remboursement = 0.95
-    elif s >= 65:
-        probabilite_remboursement = 0.80
+        probabilite = 0.95
+    elif s >= 70:
+        probabilite = 0.85
+    elif s >= 60:
+        probabilite = 0.70
     elif s >= 50:
-        probabilite_remboursement = 0.60
-    elif s >= 35:
-        probabilite_remboursement = 0.35
+        probabilite = 0.50
+    elif s >= 40:
+        probabilite = 0.30
     else:
-        probabilite_remboursement = 0.15
+        probabilite = 0.10
 
-    import random
-    return 1 if random.random() < probabilite_remboursement else 0
+    return 1 if random.random() < probabilite else 0
 
 
 def charger_donnees():

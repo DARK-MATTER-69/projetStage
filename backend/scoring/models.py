@@ -75,15 +75,15 @@ class ScoreCredit(models.Model):
     )
 
     # Recommandation Gemini
-    recommandation_ia   = models.TextField(
+    recommandation       = models.TextField(
         blank=True,
-        verbose_name='Recommandation IA',
-        help_text='Analyse narrative générée par Gemini API'
+        verbose_name='Recommandation',
+        help_text='Analyse générée par le moteur de scoring SCE'
     )
-    conditions_proposees = models.TextField(
+    conditions           = models.TextField(
         blank=True,
         verbose_name='Conditions proposées',
-        help_text='Conditions suggérées par l\'IA si décision conditionnelle'
+        help_text='Conditions suggérées si décision conditionnelle'
     )
 
     # Meta

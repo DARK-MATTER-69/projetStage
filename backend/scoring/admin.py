@@ -11,10 +11,10 @@ class ScoreCreditAdmin(admin.ModelAdmin):
     list_filter  = ['niveau_risque', 'decision_ia']
     ordering     = ['-calcule_le']
     readonly_fields = [
-        'score', 'niveau_risque', 'decision_ia',
-        'taux_endettement', 'ratio_mensualite_salaire',
-        'delai_securite', 'score_stabilite_emploi',
-        'score_capacite_remboursement', 'score_profil_client',
-        'score_dossier', 'recommandation_ia',
-        'conditions_proposees', 'calcule_le'
-    ]
+    'score', 'niveau_risque', 'decision_ia',
+    'taux_endettement', 'ratio_mensualite_salaire',
+    'delai_securite', 'score_stabilite_emploi',
+    'score_capacite_remboursement', 'score_profil_client',
+    'score_dossier', 'recommandation',
+    'conditions', 'calcule_le'
+]
