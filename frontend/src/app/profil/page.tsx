@@ -5,6 +5,7 @@ import Link from "next/link";
 import MainLayout from "@/components/layout/MainLayout";
 import { useAuthStore } from "@/store/authStore";
 import { LABELS_ROLES } from "@/lib/roles";
+import { authService } from "@/services/authService";
 
 interface ChampInfoProps {
   label:  string;
@@ -35,7 +36,12 @@ export default function ProfilPage() {
   const handleSauvegarder = async () => {
     setChargement(true);
     setSucces(false);
-    await new Promise((r) => setTimeout(r, 800));
+    await authService.modifierProfil({
+      first_name: prenom,
+      last_name:  nom,
+      email,
+      telephone,
+    });
     setSucces(true);
     setChargement(false);
   };

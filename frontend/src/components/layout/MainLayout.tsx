@@ -1,10 +1,10 @@
 "use client";
 
-// import { useEffect } from "react";
-// import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-// import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,16 +12,16 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children, titre }: MainLayoutProps) {
-//   const router                        = useRouter();
-//   const { estConnecte, tokenEstValide } = useAuthStore();
+  const router                          = useRouter();
+  const { estConnecte, tokenEstValide } = useAuthStore();
 
-//   useEffect(() => {
-//     if (!estConnecte || !tokenEstValide()) {
-//       router.push("/login");
-//     }
-//   }, [estConnecte, tokenEstValide, router]);
+  useEffect(() => {
+    if (!estConnecte || !tokenEstValide()) {
+      router.push("/login");
+    }
+  }, [estConnecte, tokenEstValide, router]);
 
-//   if (!estConnecte) return null;
+  if (!estConnecte) return null;
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">

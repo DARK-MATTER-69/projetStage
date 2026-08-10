@@ -14,22 +14,34 @@ interface Utilisateur {
 }
 
 interface JwtPayload {
-  user_id:  number;
-  exp:      number;
+  user_id: number;
+  exp:     number;
 }
 
 interface AuthStore {
-  accessToken:   string | null;
-  refreshToken:  string | null;
-  utilisateur:   Utilisateur | null;
-  estConnecte:   boolean;
-
-  // Actions
-  connexion:     (access: string, refresh: string, utilisateur: Utilisateur) => void;
-  deconnexion:   () => void;
-  setUtilisateur:(utilisateur: Utilisateur) => void;
-  tokenEstValide:() => boolean;
+  accessToken:    string | null;
+  refreshToken:   string | null;
+  utilisateur:    Utilisateur | null;
+  estConnecte:    boolean;
+  connexion:      (access: string, refresh: string, utilisateur: Utilisateur) => void;
+  deconnexion:    () => void;
+  setUtilisateur: (utilisateur: Utilisateur) => void;
+  tokenEstValide: () => boolean;
 }
+
+/** Stocke le token dans un cookie accessible par le middleware */
+const setCookie = (name: string, value: string, days = 1) => {
+  if (typeof document === "undefined") return;
+  const expires = new Date();
+  expires.setDate(expires.getDate() + days);
+  document.cookie = `${name}=${value}; path=/; expires=${expires.toUTCString()}`;
+};
+
+/** Supprime un cookie */
+const deleteCookie = (name: string) => {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+};
 
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -40,6 +52,8 @@ export const useAuthStore = create<AuthStore>()(
       estConnecte:  false,
 
       connexion: (access, refresh, utilisateur) => {
+        // Stocker dans le cookie pour le middleware
+        setCookie("access_token", access, 1);
         set({
           accessToken:  access,
           refreshToken: refresh,
@@ -49,6 +63,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       deconnexion: () => {
+        deleteCookie("access_token");
         set({
           accessToken:  null,
           refreshToken: null,
@@ -71,7 +86,7 @@ export const useAuthStore = create<AuthStore>()(
       },
     }),
     {
-      name:    "sce-auth",
+      name: "sce-auth",
       partialize: (state) => ({
         accessToken:  state.accessToken,
         refreshToken: state.refreshToken,

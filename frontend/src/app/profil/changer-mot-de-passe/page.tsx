@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import api from "@/lib/axios";
+import { authService } from "@/services/authService";
 
 export default function ChangerMotDePassePage() {
   const [ancienMdp,   setAncienMdp]   = useState("");
@@ -27,10 +28,7 @@ export default function ChangerMotDePassePage() {
     setChargement(true);
 
     try {
-      await api.post("/api/auth/mot-de-passe/modifier/", {
-        ancien_mot_de_passe:  ancienMdp,
-        nouveau_mot_de_passe: nouveauMdp,
-      });
+      await authService.changerMotDePasse(ancienMdp, nouveauMdp);
 
       setMessage({ type: "succes", texte: "Mot de passe modifié avec succès." });
       setAncienMdp("");
