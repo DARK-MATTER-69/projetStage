@@ -156,3 +156,13 @@ class ValidationDossierSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ValidationDossier
         fields = ['id', 'decision', 'commentaire']
+        
+class ClientDetailSerializer(ClientSerializer):
+    """
+    Sérialise un client avec ses dossiers associés.
+    Utilisé pour la page détail client.
+    """
+    dossiers = DossierListSerializer(many=True, read_only=True)
+
+    class Meta(ClientSerializer.Meta):
+        fields = ClientSerializer.Meta.fields + ['dossiers']

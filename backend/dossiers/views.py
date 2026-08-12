@@ -47,17 +47,13 @@ class ListeClientsView(generics.ListCreateAPIView):
 
 
 class DetailClientView(generics.RetrieveUpdateAPIView):
-    """
-    Consultation et modification d'un client.
-
-    GET /api/dossiers/clients/<id>/
-    PUT /api/dossiers/clients/<id>/
-    """
-
     queryset           = Client.objects.all()
-    serializer_class   = ClientSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return ClientDetailSerializer
+        return ClientSerializer
 
 class ListeDossiersView(generics.ListCreateAPIView):
     """
