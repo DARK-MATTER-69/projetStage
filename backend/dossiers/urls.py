@@ -12,4 +12,5 @@ urlpatterns = [
     path('<int:pk>/soumettre/', views.soumettre_dossier,            name='soumettre_dossier'),
     path('<int:pk>/valider/',   views.valider_dossier,              name='valider_dossier'),
     path('<int:pk>/documents/', views.upload_document,              name='upload_document'),
+    path('dashboard/stats/', views.stats_dashboard, name='stats_dashboard'),
 ]

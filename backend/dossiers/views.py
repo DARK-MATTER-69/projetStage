@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.db.models import Sum
 
 from .models import Client, Dossier, DocumentDossier, ValidationDossier
 from .serializers import (
@@ -218,3 +219,33 @@ def upload_document(request, pk):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def stats_dashboard(request):
+    """
+    Retourne les statistiques pour le tableau de bord.
+
+    GET /api/dashboard/stats/
+    """
+
+    user     = request.user
+    queryset = Dossier.objects.all()
+
+    # Filtre selon le rôle
+    if user.est_commercial:
+        queryset = queryset.filter(commercial=user)
+
+    stats = {
+        'dossiers_en_cours': queryset.exclude(
+            statut__in=['APPROUVE', 'REJETE', 'BROUILLON']
+        ).count(),
+        'dossiers_approuves': queryset.filter(statut='APPROUVE').count(),
+        'dossiers_rejetes':   queryset.filter(statut='REJETE').count(),
+        'montant_total':      queryset.filter(
+            statut='APPROUVE'
+        ).aggregate(total=Sum('montant_sollicite'))['total'] or 0,
+    }
+
+    return Response(stats)
