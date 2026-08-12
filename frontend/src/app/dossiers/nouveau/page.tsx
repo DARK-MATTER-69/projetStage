@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
+import { clientsService } from "@/services/clientsService";
+import { dossiersService } from "@/services/dossiersService";
 
 type Etape = 1 | 2 | 3;
 
@@ -138,18 +140,75 @@ export default function NouveauDossierPage() {
   const necessite_comite = montant > 5_000_000;
 
   const handleSoumettre = async () => {
-    setChargement(true);
-    setErreur("");
-    try {
-      // Intégration API à connecter plus tard
-      await new Promise((r) => setTimeout(r, 1000));
-      router.push("/dossiers");
-    } catch {
-      setErreur("Une erreur est survenue. Veuillez réessayer.");
-    } finally {
-      setChargement(false);
+  setChargement(true);
+  setErreur("");
+
+  try {
+    // Étape 1 — Créer le client (Fiche 1)
+    const clientData = await clientsService.creer({
+      civilite:               client.civilite,
+      nom:                    client.nom,
+      prenom:                 client.prenom,
+      date_naissance:         client.date_naissance,
+      lieu_naissance:         client.lieu_naissance,
+      nationalite:            client.nationalite,
+      numero_cni:             client.numero_cni,
+      telephone:              client.telephone,
+      email:                  client.email,
+      adresse:                client.adresse,
+      type_employeur:         client.type_employeur,
+      nom_employeur:          client.nom_employeur,
+      poste_occupe:           client.poste_occupe,
+      anciennete:             Number(client.anciennete),
+      salaire_net:            Number(client.salaire_net),
+      charges_mensuelles:     Number(client.charges_mensuelles),
+      credits_en_cours:       Number(client.credits_en_cours),
+      date_versement_salaire: Number(client.date_versement_salaire),
+    });
+
+    // Étape 2 — Créer le dossier (Fiche 2)
+    const dossierData = await dossiersService.creer({
+      client_id:              clientData.id,
+      type_credit:            dossier.type_credit,
+      montant_sollicite:      Number(dossier.montant_sollicite),
+      duree_mois:             Number(dossier.duree_mois),
+      objet_financement:      dossier.objet_financement,
+      appreciation:           dossier.appreciation,
+      date_debut_prelevement: dossier.date_debut_prelevement,
+      jour_prelevement:       Number(dossier.jour_prelevement),
+    });
+
+    // Étape 3 — Uploader les documents
+    const uploads = Object.entries(documents).filter(([, fichier]) => fichier !== null);
+
+    for (const [typeDoc, fichier] of uploads) {
+      if (fichier) {
+        await dossiersService.uploaderDocument(
+          dossierData.id,
+          typeDoc,
+          fichier
+        );
+      }
     }
-  };
+
+    // Étape 4 — Soumettre le dossier (déclenche le scoring IA)
+    await dossiersService.soumettre(dossierData.id);
+
+    // Redirection vers le détail du dossier créé
+    router.push(`/dossiers/${dossierData.id}`);
+
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: Record<string, string[]> } };
+    if (error.response?.data) {
+      const messages = Object.values(error.response.data).flat();
+      setErreur(messages[0] || "Une erreur est survenue.");
+    } else {
+      setErreur("Une erreur est survenue. Vérifiez votre connexion.");
+    }
+  } finally {
+    setChargement(false);
+  }
+};
 
   return (
     <MainLayout titre="Nouveau dossier de crédit">

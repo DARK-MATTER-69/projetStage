@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useEffect } from "react";
+import { adminService } from "@/services/adminService";
+import { EtatChargement } from "@/components/ui/EtatChargement";
 import MainLayout from "@/components/layout/MainLayout";
 import { LABELS_ROLES } from "@/lib/roles";
 
@@ -245,36 +248,79 @@ function ModalUtilisateur({ utilisateur, onFermer, onSauvegarder }: ModalUtilisa
 }
 
 export default function AdminUtilisateursPage() {
-  const [utilisateurs,      setUtilisateurs]      = useState(UTILISATEURS);
-  const [modalOuverte,      setModalOuverte]      = useState(false);
-  const [utilisateurEdite,  setUtilisateurEdite]  = useState<Utilisateur | null>(null);
-  const [recherche,         setRecherche]          = useState("");
+  const [utilisateurs,     setUtilisateurs]     = useState<Utilisateur[]>([]);
+const [chargement,       setChargement]       = useState(true);
+const [modalOuverte,     setModalOuverte]     = useState(false);
+const [utilisateurEdite, setUtilisateurEdite] = useState<Utilisateur | null>(null);
+const [recherche,        setRecherche]        = useState("");
+
+useEffect(() => {
+  const charger = async () => {
+    try {
+      const data = await adminService.listerUtilisateurs();
+      setUtilisateurs(data.results || data);
+    } catch {
+      // Silencieux
+    } finally {
+      setChargement(false);
+    }
+  };
+  charger();
+}, []);
+
+const handleSauvegarder = async (u: Utilisateur) => {
+  try {
+    if (utilisateurEdite) {
+      await adminService.modifierUtilisateur(u.id, {
+        first_name: u.first_name,
+        last_name:  u.last_name,
+        email:      u.email,
+        role:       u.role,
+        agence:     u.agence,
+        telephone:  u.telephone,
+        is_active:  u.is_active,
+      });
+    } else {
+      await adminService.creerUtilisateur({
+        username:   u.username,
+        first_name: u.first_name,
+        last_name:  u.last_name,
+        email:      u.email,
+        role:       u.role,
+        agence:     u.agence,
+        telephone:  u.telephone,
+        password:   "Sce@2025!", // Mot de passe temporaire
+      });
+    }
+    // Recharger la liste
+    const data = await adminService.listerUtilisateurs();
+    setUtilisateurs(data.results || data);
+  } catch {
+    // Silencieux
+  }
+  setModalOuverte(false);
+  setUtilisateurEdite(null);
+};
+
+const handleToggleActif = async (id: number) => {
+  const u = utilisateurs.find((x) => x.id === id);
+  if (!u) return;
+  try {
+    await adminService.modifierUtilisateur(id, { is_active: !u.is_active });
+    setUtilisateurs((prev) =>
+      prev.map((x) => x.id === id ? { ...x, is_active: !x.is_active } : x)
+    );
+  } catch {
+    // Silencieux
+  }
+};
 
   const utilisateursFiltres = utilisateurs.filter((u) =>
     `${u.first_name} ${u.last_name} ${u.username} ${u.email}`
       .toLowerCase()
       .includes(recherche.toLowerCase())
   );
-
-  const handleSauvegarder = (u: Utilisateur) => {
-    setUtilisateurs((prev) => {
-      const existe = prev.find((x) => x.id === u.id);
-      return existe
-        ? prev.map((x) => (x.id === u.id ? u : x))
-        : [...prev, u];
-    });
-    setModalOuverte(false);
-    setUtilisateurEdite(null);
-  };
-
-  const handleToggleActif = (id: number) => {
-    setUtilisateurs((prev) =>
-      prev.map((u) =>
-        u.id === id ? { ...u, is_active: !u.is_active } : u
-      )
-    );
-  };
-
+  
   return (
     <MainLayout titre="Gestion des utilisateurs">
       <div className="space-y-5">

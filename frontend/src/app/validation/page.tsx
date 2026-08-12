@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useEffect } from "react";
+import { dossiersService } from "@/services/dossiersService";
+import { EtatChargement } from "@/components/ui/EtatChargement";
 import MainLayout from "@/components/layout/MainLayout";
 
 interface DossierValidation {
@@ -232,25 +235,40 @@ function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps)
 }
 
 export default function ValidationPage() {
-  const [dossierSelectionne, setDossierSelectionne] =
-    useState<DossierValidation | null>(null);
+const [dossiers,          setDossiers]          = useState<DossierValidation[]>([]);
+const [chargement,        setChargement]        = useState(true);
+const [dossierSelectionne, setDossierSelectionne] = useState<DossierValidation | null>(null);
 
-  const [dossiers, setDossiers] = useState(DOSSIERS);
-
-  const handleValider = (
-    id:          number,
-    decision:    string,
-    commentaire: string
-  ) => {
-    setDossiers((prev) =>
-      prev.map((d) =>
-        d.id === id
-          ? { ...d, statut: decision === "APPROUVE" ? "APPROUVE" : "REJETE" }
-          : d
-      )
-    );
-    setDossierSelectionne(null);
+useEffect(() => {
+  const charger = async () => {
+    try {
+      const data = await dossiersService.lister();
+      const liste = (data.results || data) as DossierValidation[];
+      setDossiers(liste);
+    } catch {
+      // Silencieux
+    } finally {
+      setChargement(false);
+    }
   };
+  charger();
+}, []);
+
+const handleValider = async (
+  id:          number,
+  decision:    string,
+  commentaire: string
+) => {
+  try {
+    await dossiersService.valider(id, { decision, commentaire });
+    // Recharger la liste après validation
+    const data = await dossiersService.lister();
+    setDossiers(data.results || data);
+  } catch {
+    // Silencieux
+  }
+  setDossierSelectionne(null);
+};
 
   const dossiersEnAttente = dossiers.filter(
     (d) => !["APPROUVE", "REJETE"].includes(d.statut)
@@ -265,22 +283,8 @@ export default function ValidationPage() {
       <div className="space-y-5">
 
         {/* Dossiers en attente */}
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center
-                          justify-between">
-            <h2 className="text-sm font-semibold text-gray-800">
-              En attente de validation
-            </h2>
-            <span className="text-xs font-medium px-2 py-1 rounded-full
-                             bg-orange-50 text-orange-600">
-              {dossiersEnAttente.length} dossier{dossiersEnAttente.length > 1 ? "s" : ""}
-            </span>
-          </div>
-
-          {dossiersEnAttente.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-10">
-              Aucun dossier en attente.
-            </p>
+        { chargement ? (
+            <EtatChargement message="Chargement des dossiers..." />
           ) : (
             <div className="divide-y divide-gray-50">
               {dossiersEnAttente.map((d) => (
