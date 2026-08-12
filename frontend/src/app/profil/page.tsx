@@ -61,7 +61,7 @@ export default function ProfilPage() {
 
             {/* Avatar */}
             <div className="w-16 h-16 rounded-full flex items-center justify-center
-                            text-2xl font-bold flex-shrink-0"
+                            text-2xl font-bold shrink-0"
               style={{ background: "rgba(146,43,0,0.1)", color: "#922b00" }}>
               {utilisateur?.first_name?.[0]?.toUpperCase() || "U"}
             </div>
@@ -85,7 +85,7 @@ export default function ProfilPage() {
               </span>
             </div>
 
-            <div className="text-right flex-shrink-0">
+            <div className="text-right shrink-0">
               <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">
                 Agence
               </p>

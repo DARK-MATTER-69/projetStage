@@ -1,93 +1,155 @@
+"""
+Module d'extraction intelligente des relevés bancaires PDF via Gemini.
+Gemini est utilisé UNIQUEMENT pour cette tâche de vision documentaire.
+Le scoring et les recommandations restent 100% locaux.
+"""
+
+import json
+import base64
 from google import genai
 from google.genai import types
 from django.conf import settings
-import time 
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Optional
 
 
-class ServiceGemini:
+@dataclass
+class ResultatReleve:
+    """Résultat de l'extraction Gemini d'un relevé bancaire."""
+    total_credits:           Decimal = Decimal('0')
+    total_debits:            Decimal = Decimal('0')
+    solde_final:             Optional[Decimal] = None
+    solde_moyen:             Optional[Decimal] = None
+    remboursements_credits:  Decimal = Decimal('0')
+    decouvert_detecte:       bool    = False
+    nb_operations:           int     = 0
+    banque_detectee:         str     = ""
+    succes:                  bool    = True
+    message:                 str     = ""
+
+    @property
+    def moyenne_credits_mensuelle(self):
+        return round(self.total_credits / 3, 2)
+
+    @property
+    def moyenne_debits_mensuelle(self):
+        return round(self.total_debits / 3, 2)
+
+
+class ExtracteurReleveGemini:
     """
-    Service d'intégration avec l'API Google Gemini.
-    Génère une analyse narrative et des recommandations
-    en français à partir des résultats du scoring IA.
+    Extrait les données financières d'un relevé bancaire PDF
+    en utilisant les capacités de vision multimodale de Gemini.
+
+    Compatible avec tous les formats de relevés bancaires camerounais :
+    BICEC, AfriLand, SGBC, SCB, Campost, La Regional Bank, CCA.
+    Fonctionne aussi sur les PDFs scannés.
     """
+
+    PROMPT_EXTRACTION = """
+Tu es un expert en analyse de relevés bancaires camerounais.
+Analyse ce relevé bancaire et extrait les données financières suivantes.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après.
+
+{
+  "banque": "Nom de la banque détectée",
+  "total_credits": 0.00,
+  "total_debits": 0.00,
+  "solde_final": 0.00,
+  "solde_moyen": 0.00,
+  "remboursements_credits": 0.00,
+  "decouvert_detecte": false,
+  "nb_operations": 0,
+  "message": "Résumé en 1 phrase"
+}
+
+Règles d'extraction :
+- total_credits : somme de TOUTES les opérations créditrices sur les 3 mois
+- total_debits : somme de TOUTES les opérations débitrices sur les 3 mois
+- solde_final : dernier solde visible sur le relevé
+- solde_moyen : moyenne des soldes relevés (si disponible, sinon null)
+- remboursements_credits : somme des lignes contenant les mots
+  "echéance", "remboursement", "amortissement", "prêt", "crédit", "leasing"
+- decouvert_detecte : true si un solde négatif ou le mot "découvert" apparaît
+- nb_operations : nombre total de lignes d'opérations
+- Tous les montants en FCFA sans le symbole, juste le nombre décimal
+- Si une valeur est introuvable, mettre null (pas 0)
+"""
 
     def __init__(self):
-        """Configure le client Gemini avec la clé API du settings."""
+        """Configure le client Gemini."""
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.model  = 'gemini-2.0-flash'
 
-    def _construire_prompt(self, dossier, resultats_scoring):
+    def extraire(self, chemin_pdf: str) -> ResultatReleve:
         """
-        Construit un prompt concis pour économiser les tokens.
+        Extrait les données d'un relevé bancaire PDF via Gemini Vision.
+
+        :param chemin_pdf: str chemin vers le fichier PDF
+        :return:           ResultatReleve avec toutes les données extraites
         """
-        client = dossier.client
+        resultat = ResultatReleve()
 
-        return f"""Tu es analyste de crédit à la SCE Cameroun. Analyse ce dossier en 150 mots max.
-
-    DOSSIER
-    - Client : {client.get_type_employeur_display()}, {client.anciennete} ans ancienneté
-    - Salaire : {client.salaire_net:,.0f} FCFA
-    - Montant : {dossier.montant_sollicite:,.0f} FCFA / {dossier.duree_mois} mois
-    - Mensualité : {dossier.mensualite_estimee:,.0f} FCFA
-    - Traite max : {dossier.traite_max_autorisee:,.0f} FCFA
-    - Taux endettement : {resultats_scoring['taux_endettement']}%
-
-    SCORE IA : {resultats_scoring['score']}/100 — {resultats_scoring['niveau_risque']} — {resultats_scoring['decision_ia']}
-
-    Rédige en français :
-    1. SYNTHESE (1 phrase)
-    2. POINTS CLES (2-3 points max)
-    3. RECOMMANDATION (1 phrase claire)"""
-
-    def generer_analyse(self, dossier, resultats_scoring):
         try:
-            # Respecte la limite de 15 requêtes/minute
-            time.sleep(4.5)
-            prompt   = self._construire_prompt(dossier, resultats_scoring)
+            # Lire et encoder le PDF en base64
+            with open(chemin_pdf, 'rb') as f:
+                contenu_pdf = f.read()
+
+            # Envoyer à Gemini avec le PDF en pièce jointe
             response = self.client.models.generate_content(
                 model    = self.model,
-                contents = prompt
+                contents = [
+                    types.Part.from_bytes(
+                        data      = contenu_pdf,
+                        mime_type = 'application/pdf',
+                    ),
+                    self.PROMPT_EXTRACTION,
+                ]
             )
-            return response.text.strip()
+
+            # Parser la réponse JSON
+            texte = response.text.strip()
+
+            # Nettoyer les balises markdown si présentes
+            if texte.startswith('```'):
+                texte = texte.split('```')[1]
+                if texte.startswith('json'):
+                    texte = texte[4:]
+            texte = texte.strip()
+
+            donnees = json.loads(texte)
+
+            # Construire le résultat
+            def to_decimal(val):
+                if val is None:
+                    return None
+                return Decimal(str(val))
+
+            resultat.banque_detectee        = donnees.get('banque', '')
+            resultat.total_credits          = to_decimal(donnees.get('total_credits')) or Decimal('0')
+            resultat.total_debits           = to_decimal(donnees.get('total_debits')) or Decimal('0')
+            resultat.solde_final            = to_decimal(donnees.get('solde_final'))
+            resultat.solde_moyen            = to_decimal(donnees.get('solde_moyen'))
+            resultat.remboursements_credits = to_decimal(donnees.get('remboursements_credits')) or Decimal('0')
+            resultat.decouvert_detecte      = bool(donnees.get('decouvert_detecte', False))
+            resultat.nb_operations          = int(donnees.get('nb_operations', 0))
+            resultat.message                = donnees.get('message', '')
+
+            resultat.succes = True
+
+        except FileNotFoundError:
+            resultat.succes  = False
+            resultat.message = "Fichier PDF introuvable."
+
+        except json.JSONDecodeError as e:
+            resultat.succes  = False
+            resultat.message = f"Réponse Gemini non parseable : {str(e)}"
+
         except Exception as e:
-            return (
-                f"Analyse automatique indisponible. "
-                f"Veuillez procéder à une analyse manuelle. "
-                f"Erreur : {str(e)}"
-            )
-            
-    def generer_conditions(self, dossier, resultats_scoring):
-        """
-        Génère des conditions spécifiques si la décision est CONDITIONNEL.
-        N'est appelé que lorsque la décision IA est CONDITIONNEL.
+            # Fallback : si Gemini échoue, on retourne un résultat vide
+            resultat.succes  = False
+            resultat.message = f"Extraction indisponible : {str(e)}"
 
-        :param dossier: Instance de dossiers.models.Dossier
-        :param resultats_scoring: dict retourné par MoteurScoring.calculer()
-        :return: str conditions proposées
-        """
-        if resultats_scoring['decision_ia'] != 'CONDITIONNEL':
-            return ''
-
-        prompt = f"""
-Tu es un analyste de crédit dans un établissement financier camerounais.
-Le dossier suivant a reçu une décision CONDITIONNELLE (score {resultats_scoring['score']}/100).
-
-Montant sollicité    : {dossier.montant_sollicite:,.0f} FCFA
-Mensualité estimée   : {dossier.mensualite_estimee:,.0f} FCFA
-Traite max autorisée : {dossier.traite_max_autorisee:,.0f} FCFA
-Taux d'endettement   : {resultats_scoring['taux_endettement']}%
-Type d'employeur     : {dossier.client.get_type_employeur_display()}
-
-Propose 2 à 3 conditions concrètes et réalistes pour que ce dossier
-puisse être approuvé. Par exemple : réduction du montant, augmentation
-de la durée, apport personnel, caution solidaire, etc.
-Sois bref et précis. Maximum 100 mots.
-"""
-        try:
-            response = self.client.models.generate_content(
-            model    = self.model,
-            contents = prompt
-            )
-            return response.text.strip()
-        except Exception:
-            return ''
+        return resultat

@@ -38,6 +38,7 @@ class Client(models.Model):
     telephone       = models.CharField(max_length=20, verbose_name='Téléphone')
     email           = models.EmailField(blank=True, verbose_name='Email')
     adresse         = models.TextField(verbose_name='Adresse')
+    
 
     # Situation professionnelle
     type_employeur  = models.CharField(
@@ -52,6 +53,17 @@ class Client(models.Model):
         max_digits=12,
         decimal_places=2,
         verbose_name='Salaire net mensuel (FCFA)'
+    )
+    matricule = models.CharField(
+    max_length=20,
+    blank=True,
+    verbose_name='Matricule'
+    )
+    mode_paiement = models.CharField(
+        max_length=10,
+        default='PSMA',
+        verbose_name='Mode de paiement',
+        help_text='PSMA = Prélèvement Sur Masse Salariale Automatique'
     )
 
     # Situation financière
@@ -159,6 +171,44 @@ class Dossier(models.Model):
         verbose_name='Appréciation du commercial',
         help_text='Observations et avis du commercial sur le dossier'
     )
+    echeance_mens_banque = models.DecimalField(
+    max_digits=12,
+    decimal_places=2,
+    default=0,
+    verbose_name='Echéance mensuelle banque (FCFA)',
+    help_text='Engagements mensuels du client dans d\'autres banques'
+    )
+
+    encours_sce = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Encours SCE (FCFA)',
+        help_text='Total restant dû à la SCE sur d\'anciens dossiers'
+    )
+
+    assureur = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Assureur'
+    )
+
+    montant_assurance_ttc = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Montant assurance TTC (FCFA)'
+    )
+
+    avi = models.BooleanField(
+        default=False,
+        verbose_name='AVI (Avis de Virement Irrévocable)'
+    )
+
+    delegation_salaire = models.BooleanField(
+        default=False,
+        verbose_name='Délégation de salaire'
+    )
 
     # Circuit de validation
     statut              = models.CharField(
@@ -211,6 +261,7 @@ class Dossier(models.Model):
             charges_totales = self.client.charges_mensuelles + self.mensualite_estimee
             return round((charges_totales / salaire) * 100, 2)
         return 0
+    
     @property
     def traite_max_autorisee(self):
         """
@@ -229,6 +280,30 @@ class Dossier(models.Model):
         à la traite maximale autorisée.
         """
         return self.mensualite_estimee <= self.traite_max_autorisee
+    @property
+    def total_engagements_mensuel(self):
+        """
+        Total des engagements mensuels du client :
+        échéance banque + nouvelle échéance SCE demandée.
+        """
+        return (
+            self.echeance_mens_banque +
+            self.mensualite_estimee +
+            self.client.credits_en_cours
+        )
+
+    @property
+    def quotite_relative(self):
+        """
+        Quotité relative = Total engagements / Salaire x 100.
+        La COBAC fixe un maximum de 33%.
+        """
+        salaire = self.client.salaire_net
+        if salaire and salaire > 0:
+            return round(
+                (self.total_engagements_mensuel / salaire) * 100, 2
+            )
+        return Decimal('0')
 
 
 class ValidationDossier(models.Model):
