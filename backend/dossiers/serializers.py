@@ -21,8 +21,6 @@ class DocumentDossierSerializer(serializers.ModelSerializer):
 
 
 class ClientSerializer(serializers.ModelSerializer):
-    """Sérialise les informations complètes d'un client."""
-
     type_employeur_display = serializers.CharField(
         source='get_type_employeur_display',
         read_only=True
@@ -41,7 +39,9 @@ class ClientSerializer(serializers.ModelSerializer):
             'type_employeur', 'type_employeur_display', 'nom_employeur',
             'poste_occupe', 'anciennete', 'salaire_net',
             'charges_mensuelles', 'credits_en_cours',
-            'date_versement_salaire', 'cree_le'
+            'date_versement_salaire',
+            'matricule', 'mode_paiement',
+            'cree_le'
         ]
         read_only_fields = ['id', 'cree_le']
 
@@ -76,11 +76,6 @@ class DossierListSerializer(serializers.ModelSerializer):
 
 
 class DossierDetailSerializer(serializers.ModelSerializer):
-    """
-    Sérialise un dossier avec tous ses détails.
-    Utilisé pour la consultation et la création.
-    """
-
     client              = ClientSerializer(read_only=True)
     client_id           = serializers.PrimaryKeyRelatedField(
         queryset=Client.objects.all(),
@@ -97,22 +92,24 @@ class DossierDetailSerializer(serializers.ModelSerializer):
         source='get_type_credit_display',
         read_only=True
     )
+
+    # Propriétés calculées
     mensualite_estimee      = serializers.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        read_only=True
+        max_digits=12, decimal_places=2, read_only=True
     )
     taux_endettement        = serializers.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        read_only=True
+        max_digits=5,  decimal_places=2, read_only=True
     )
     traite_max_autorisee    = serializers.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        read_only=True
+        max_digits=12, decimal_places=2, read_only=True
     )
     est_traite_acceptable   = serializers.BooleanField(read_only=True)
+    total_engagements_mensuel = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    quotite_relative        = serializers.DecimalField(
+        max_digits=5,  decimal_places=2, read_only=True
+    )
 
     class Meta:
         model  = Dossier
@@ -122,10 +119,17 @@ class DossierDetailSerializer(serializers.ModelSerializer):
             'montant_sollicite', 'duree_mois',
             'objet_financement', 'appreciation',
             'date_debut_prelevement', 'jour_prelevement',
+            # Nouveaux champs
+            'echeance_mens_banque', 'encours_sce',
+            'assureur', 'montant_assurance_ttc',
+            'avi', 'delegation_salaire',
+            # Statut et circuit
             'statut', 'statut_display',
             'necessite_comite', 'documents', 'validations',
+            # Calculés
             'mensualite_estimee', 'taux_endettement',
             'traite_max_autorisee', 'est_traite_acceptable',
+            'total_engagements_mensuel', 'quotite_relative',
             'cree_le', 'soumis_le'
         ]
         read_only_fields = [
@@ -134,14 +138,13 @@ class DossierDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_validations(self, obj):
-        """Retourne les validations avec le nom du validateur."""
         return [
             {
-                'validateur': v.validateur.get_full_name(),
-                'role':       v.validateur.get_role_display(),
-                'decision':   v.get_decision_display(),
+                'validateur':  v.validateur.get_full_name(),
+                'role':        v.validateur.get_role_display(),
+                'decision':    v.get_decision_display(),
                 'commentaire': v.commentaire,
-                'date':       v.date,
+                'date':        v.date,
             }
             for v in obj.validations.all()
         ]
