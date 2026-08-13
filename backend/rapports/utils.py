@@ -269,14 +269,14 @@ def generer_rapport_pdf(dossier):
         contenu.append(Spacer(1, 0.3*cm))
 
         # Recommandation IA
-        if score.recommandation_ia:
+        if score.recommandation:
             contenu.append(Paragraph('Analyse et recommandation IA :', style_corps))
-            contenu.append(Paragraph(score.recommandation_ia, style_corps))
+            contenu.append(Paragraph(score.recommandation, style_corps))
 
-        if score.conditions_proposees:
+        if score.conditions:
             contenu.append(Spacer(1, 0.2*cm))
             contenu.append(Paragraph(
-                f'<b>Conditions proposées :</b> {score.conditions_proposees}',
+                f'<b>Conditions proposées :</b> {score.conditions}',
                 style_alerte
             ))
 

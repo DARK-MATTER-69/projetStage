@@ -13,4 +13,5 @@ urlpatterns = [
     path('<int:pk>/valider/',   views.valider_dossier,              name='valider_dossier'),
     path('<int:pk>/documents/', views.upload_document,              name='upload_document'),
     path('dashboard/stats/', views.stats_dashboard, name='stats_dashboard'),
+    path('<int:pk>/analyser-releve/', views.analyser_releve, name='analyser_releve'),
 ]

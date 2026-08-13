@@ -145,7 +145,6 @@ class Command(BaseCommand):
                         f'Client sérieux avec {anciennete} ans d\'ancienneté. '
                         f'Dossier complet et conforme.'
                     ),
-                    statut            = Dossier.Statut.SOUMIS,
                     jour_prelevement  = jour_prelevement,
                 )
 

@@ -142,20 +142,26 @@ class DossierDetailSerializer(serializers.ModelSerializer):
             {
                 'validateur':  v.validateur.get_full_name(),
                 'role':        v.validateur.get_role_display(),
+                'etape':       v.get_etape_display(),
                 'decision':    v.get_decision_display(),
                 'commentaire': v.commentaire,
+                'assigne_a':   v.assigne_a.get_full_name() if v.assigne_a else None,
                 'date':        v.date,
-            }
+            }  
             for v in obj.validations.all()
-        ]
+    ]
 
 
 class ValidationDossierSerializer(serializers.ModelSerializer):
     """Sérialise une décision de validation sur un dossier."""
 
+    assigne_a_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True
+    )
+
     class Meta:
         model  = ValidationDossier
-        fields = ['id', 'decision', 'commentaire']
+        fields = ['id', 'decision', 'commentaire', 'assigne_a_id']
         
 class ClientDetailSerializer(ClientSerializer):
     """

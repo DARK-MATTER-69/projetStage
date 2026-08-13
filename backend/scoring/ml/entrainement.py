@@ -121,9 +121,7 @@ def charger_donnees():
 
     for score in scores:
         try:
-            f = extraire_features(score, score.dossier)
             l = generer_label(score)
-            features.append(f)
             labels.append(l)
         except Exception:
             continue

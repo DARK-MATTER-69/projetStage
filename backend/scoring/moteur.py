@@ -1,25 +1,27 @@
 from decimal import Decimal
-from dossiers.models import DocumentDossier
-from dossiers.extracteur_releve import ExtracteurReleve
-import os
+from datetime import date
+
 
 class MoteurScoring:
     """
-    Moteur de calcul du score de crédit SCE.
-    Basé sur les critères réels utilisés par la SCE :
-    - Quotité disponible (seuil COBAC 33%)
-    - Historique de compte bancaire
-    - Dettes dans d'autres institutions
-    - Capacité de remboursement réelle
-    - Stabilité professionnelle
+    Moteur de scoring crédit 100% local SCE.
+    Basé sur l'historique interne des clients SCE :
+    - Comportement de remboursement passé
+    - Impayés SCE
+    - Évolution du salaire
+    - Quotité disponible
+    - Engagements totaux
 
-    Score final sur 100 réparti en 4 critères de 25 pts chacun.
+    Score sur 100 réparti en 4 critères de 25 pts chacun :
+    1. Stabilité professionnelle       /25
+    2. Capacité de remboursement       /25
+    3. Historique client SCE           /25
+    4. Complétude du dossier           /25
     """
 
-    SEUIL_COBAC             = Decimal('33.00')  # % max d'endettement
-    SEUIL_ENDETTEMENT_BON   = Decimal('20.00')  # % considéré comme bon
-    SCORE_FAVORABLE         = 70
-    SCORE_CONDITIONNEL      = 50
+    SEUIL_COBAC        = Decimal('33.00')
+    SCORE_FAVORABLE    = 70
+    SCORE_CONDITIONNEL = 50
 
     def __init__(self, dossier):
         """
@@ -28,26 +30,14 @@ class MoteurScoring:
         self.dossier = dossier
         self.client  = dossier.client
 
-
+    # ------------------------------------------------------------------
     # Critère 1 — Stabilité professionnelle (25 pts)
+    # ------------------------------------------------------------------
 
     def _score_stabilite(self):
         """
-        Évalue la stabilité professionnelle du client.
-
-        Points employeur :
-            Fonctionnaire : 15 pts
-            Retraité      : 13 pts
-            Privé         : 12 pts
-            ONG           : 10 pts
-            Commerçant    :  7 pts
-            Autre         :  5 pts
-
-        Points ancienneté :
-            >= 10 ans : 10 pts
-            5–9 ans   :  7 pts
-            2–4 ans   :  5 pts
-            < 2 ans   :  2 pts
+        Évalue la stabilité professionnelle.
+        Points employeur + ancienneté + évolution salariale.
         """
         points_employeur = {
             'FONCTIONNAIRE': 15,
@@ -57,28 +47,37 @@ class MoteurScoring:
             'COMMERCANT':     7,
             'AUTRE':          5,
         }
-        score  = points_employeur.get(self.client.type_employeur, 5)
-        annees = self.client.anciennete
+        score = points_employeur.get(self.client.type_employeur, 5)
 
-        if annees >= 10:
-            score += 10
-        elif annees >= 5:
+        # Ancienneté
+        anciennete = self.client.anciennete
+        if anciennete >= 10:
             score += 7
-        elif annees >= 2:
+        elif anciennete >= 5:
             score += 5
+        elif anciennete >= 2:
+            score += 3
         else:
-            score += 2
+            score += 1
+
+        # Évolution salariale (bonus si salaire a augmenté)
+        historique = self.client.historique_salaires.order_by('date_effet')
+        if historique.count() >= 2:
+            premier = historique.first().salaire
+            dernier = historique.last().salaire
+            if dernier > premier:
+                score += 3  # Bonus évolution positive
 
         return min(score, 25)
 
-    
-    # Critère 2 — Quotité et capacité de remboursement (25 pts)
+    # ------------------------------------------------------------------
+    # Critère 2 — Capacité de remboursement (25 pts)
+    # ------------------------------------------------------------------
 
     def _score_capacite(self):
         """
-        Évalue la capacité de remboursement selon les critères réels SCE.
-        Basé sur la quotité relative (Total engagements / Salaire).
-        Seuil COBAC maximum : 33%.
+        Évalue la capacité de remboursement selon les critères SCE.
+        Basé sur la quotité relative et la traite max autorisée.
         """
         score    = 0
         quotite  = float(self.dossier.quotite_relative)
@@ -86,88 +85,115 @@ class MoteurScoring:
         traite_max = self.dossier.traite_max_autorisee
 
         # Points quotité (15 pts max)
-        if quotite <= 20:
+        if quotite <= 15:
             score += 15
-        elif quotite <= 25:
+        elif quotite <= 20:
             score += 12
+        elif quotite <= 25:
+            score += 9
         elif quotite <= 33:
-            score += 7
+            score += 5
         else:
-            score += 0  # Dépasse le seuil COBAC
+            score += 0  # Hors seuil COBAC
 
         # Points mensualité vs traite max (10 pts max)
         if traite_max > 0:
-            if traite <= traite_max * Decimal('0.80'):
+            ratio = float(traite / traite_max)
+            if ratio <= 0.70:
                 score += 10
-            elif traite <= traite_max:
-                score += 6
+            elif ratio <= 0.85:
+                score += 7
+            elif ratio <= 1.00:
+                score += 4
             else:
                 score += 0
 
         return min(score, 25)
-    
-    
-    # Critère 3 — Historique bancaire et dettes (25 pts)
 
-    def _score_historique(self):
+    # ------------------------------------------------------------------
+    # Critère 3 — Historique client SCE (25 pts)
+    # ------------------------------------------------------------------
+
+    def _score_historique_sce(self):
         """
-        Évalue le profil financier basé sur l'historique bancaire
-        et les dettes dans d'autres institutions.
+        Évalue le comportement du client basé sur son historique
+        interne à la SCE.
 
-        Points crédits en cours dans d'autres institutions (15 pts) :
-            Aucun crédit en cours     : 15 pts
-            <= 10% du salaire         : 10 pts
-            <= 20% du salaire         : 5 pts
-            > 20% du salaire          : 0 pt
+        Points dossiers précédents (10 pts) :
+            Aucun dossier précédent     :  5 pts (nouveau client)
+            1-2 dossiers bien remboursés: 10 pts
+            Dossiers avec retards       :  3 pts
+            Impayés non régularisés     :  0 pt
 
-        Points délai de sécurité (10 pts) :
-            Prélèvement >= 5j après salaire : 10 pts
-            Prélèvement 1–4j après salaire  :  6 pts
-            Prélèvement avant salaire        :  0 pt
+        Points impayés (10 pts) :
+            Aucun impayé SCE            : 10 pts
+            Impayés régularisés         :  5 pts
+            Impayés en cours            :  0 pt
+            En contentieux              :  0 pt
+
+        Points délai sécurité (5 pts) :
+            Prélèvement >= 5j après salaire : 5 pts
+            Prélèvement 1-4j après          : 3 pts
+            Avant salaire                    : 0 pt
         """
+        from dossiers.models import ImpayeSCE
+
         score  = 0
-        salaire = self.client.salaire_net
+        client = self.client
 
-        # Dettes autres institutions
-        credits = self.client.credits_en_cours
-        if credits == 0:
-            score += 15
-        elif salaire > 0 and credits <= salaire * Decimal('0.10'):
-            score += 10
-        elif salaire > 0 and credits <= salaire * Decimal('0.20'):
-            score += 5
+        # ── Historique dossiers SCE ──────────────────────
+        dossiers_passes = client.dossiers.exclude(
+            pk=self.dossier.pk
+        ).filter(statut='APPROUVE')
+
+        nb_dossiers = dossiers_passes.count()
+
+        if nb_dossiers == 0:
+            score += 5  # Nouveau client SCE
+        elif nb_dossiers >= 1:
+            score += 10  # Client fidèle avec bons antécédents
+
+        # ── Impayés SCE ──────────────────────────────────
+        impayes_en_cours = client.impayes.filter(
+            statut__in=['EN_COURS', 'CONTENTIEUX']
+        ).count()
+
+        impayes_regularises = client.impayes.filter(
+            statut='REGULARISE'
+        ).count()
+
+        if impayes_en_cours > 0:
+            score += 0  # Impayés actifs = rédhibitoire
+        elif impayes_regularises > 0:
+            score += 5  # Impayés régularisés = toléré
         else:
-            score += 0
+            score += 10  # Aucun impayé
 
-        # Délai de sécurité salaire / prélèvement
-        jour_salaire     = self.client.date_versement_salaire or 0
+        # ── Délai de sécurité ────────────────────────────
+        jour_salaire     = client.date_versement_salaire or 0
         jour_prelevement = self.dossier.jour_prelevement or 0
 
         if jour_salaire and jour_prelevement:
             delai = jour_prelevement - jour_salaire
             if delai >= 5:
-                score += 10
+                score += 5
             elif delai >= 1:
-                score += 6
+                score += 3
             else:
                 score += 0
         else:
-            score += 5  # Valeur neutre si non renseigné
+            score += 3  # Valeur neutre
 
         return min(score, 25)
 
- 
+    # ------------------------------------------------------------------
     # Critère 4 — Complétude du dossier (25 pts)
+    # ------------------------------------------------------------------
 
     def _score_dossier(self):
         """
         Évalue la complétude du dossier transmis.
-
-        Documents obligatoires (5 pts chacun = 20 pts max) :
-            CNI, RIB, Historique bancaire 3 mois, NIU
-
-        Appréciation commerciale renseignée (5 pts) :
-            Texte d'au moins 50 caractères
+        Documents obligatoires + appréciation commerciale.
         """
         from dossiers.models import DocumentDossier
 
@@ -192,123 +218,136 @@ class MoteurScoring:
 
         return min(score, 25)
 
- 
-    # Génération de la recommandation locale (sans IA externe)
+    # ------------------------------------------------------------------
+    # Recalcul après modification salaire
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def recalculer_pour_client(cls, client):
+        """
+        Recalcule le score de tous les dossiers actifs d'un client
+        après une modification de son salaire.
+        Utilisé quand le salaire d'un client augmente.
+
+        :param client: Instance de dossiers.models.Client
+        :return:       list de ScoreCredit mis à jour
+        """
+        from scoring.services import calculer_et_sauvegarder_score
+
+        dossiers_actifs = client.dossiers.filter(
+            statut__in=[
+                'BROUILLON', 'PRET_A_SOUMETTRE',
+                'SOUMIS', 'VALIDE_CHEF_1',
+                'EN_ANALYSE_1', 'EN_ANALYSE_2',
+            ]
+        )
+
+        scores = []
+        for dossier in dossiers_actifs:
+            score = calculer_et_sauvegarder_score(dossier)
+            scores.append(score)
+
+        return scores
+
+    # ------------------------------------------------------------------
+    # Recommandation locale
+    # ------------------------------------------------------------------
 
     def _generer_recommandation(self, score_total, resultats):
         """
-        Génère une recommandation textuelle basée sur les résultats
-        du scoring. Aucun appel externe requis.
-
-        :param score_total: int score final /100
-        :param resultats:   dict résultats du scoring
-        :return:            str recommandation en français
+        Génère l'avis motivé dans le style SCE.
+        Format identique à la vraie Fiche 2 de la SCE.
         """
-        taux        = resultats['taux_endettement']
-        mensualite  = float(self.dossier.mensualite_estimee)
-        traite_max  = float(self.dossier.traite_max_autorisee)
-        credits     = float(self.client.credits_en_cours)
-        salaire     = float(self.client.salaire_net)
+        from dossiers.models import ImpayeSCE
+
+        client  = self.client
+        dossier = self.dossier
+
+        # Calcul âge
+        aujourd_hui = date.today()
+        age = (aujourd_hui - client.date_naissance).days // 365
+
+        # Qualifier l'employeur
+        qualifs_employeur = {
+            'FONCTIONNAIRE': "c'est l'État qui paie son salaire. Employeur fiable.",
+            'PRIVE':         f"employeur du secteur privé ({client.nom_employeur}).",
+            'ONG':           f"employeur ONG/Association ({client.nom_employeur}).",
+            'RETRAITE':      "retraité avec revenus fixes et stables.",
+            'COMMERCANT':    "commerçant avec revenus variables.",
+            'AUTRE':         "employeur à vérifier.",
+        }
 
         lignes = []
 
-        # Synthèse
+        # En-tête style SCE
         lignes.append(
-            f"Le client {self.client.civilite} {self.client.nom} "
-            f"{self.client.prenom}, {self.client.get_type_employeur_display()} "
-            f"avec {self.client.anciennete} ans d'ancienneté, sollicite un crédit "
-            f"de {self.dossier.montant_sollicite:,.0f} FCFA "
-            f"sur {self.dossier.duree_mois} mois."
+            f"CLIENT QUI ENTRE EN RELATION. "
+            f"{client.get_civilite_display().upper()} "
+            f"{client.nom.upper()} {client.prenom.upper()}, "
+            f"ÂGÉ(E) DE {age} ANS, EST "
+            f"{client.get_type_employeur_display().upper()}. "
+            f"{qualifs_employeur.get(client.type_employeur, '').upper()} "
+            f"IL/ELLE SOLLICITE CE FINANCEMENT POUR "
+            f"{dossier.objet_financement.upper()}."
         )
 
         lignes.append("")
 
-        # Points forts
-        points_forts = []
-        if taux <= 20:
-            points_forts.append(
-                f"Taux d'endettement faible ({taux:.1f}%) — bien en dessous "
-                f"du seuil COBAC de 33%."
-            )
-        if credits == 0:
-            points_forts.append(
-                "Aucun crédit en cours dans d'autres institutions financières."
-            )
-        if self.client.anciennete >= 5:
-            points_forts.append(
-                f"Bonne stabilité professionnelle "
-                f"({self.client.anciennete} ans d'ancienneté)."
-            )
-        if mensualite <= traite_max * 0.80:
-            points_forts.append(
-                f"Mensualité de {mensualite:,.0f} FCFA confortable "
-                f"par rapport à la traite maximale de {traite_max:,.0f} FCFA."
+        # Employeur
+        lignes.append(
+            f"EMPLOYEUR : {client.nom_employeur.upper()}."
+        )
+
+        lignes.append("")
+
+        # Domiciliation + données financières
+        impayes = client.impayes.filter(statut='EN_COURS').count()
+        eng_bq  = float(dossier.echeance_mens_banque)
+
+        lignes.append(
+            f"DOMICILIATION DU SALAIRE : {dossier.releve_banque or 'À PRÉCISER'}. "
+            f"SALAIRE : {float(client.salaire_net):,.0f} FRS. "
+            f"ENG BQ : {eng_bq:,.0f} FRS. "
+            f"QUOTITE RELATIVE : {float(dossier.quotite_relative):.2f}%. "
+            f"TRAITE : {float(dossier.mensualite_estimee):,.0f} FRS. "
+            f"DUREE : {dossier.duree_mois} MOIS."
+        )
+
+        if impayes > 0:
+            lignes.append(
+                f"ATTENTION : {impayes} IMPAYÉ(S) EN COURS À LA SCE."
             )
 
-        if points_forts:
-            lignes.append("Points favorables :")
-            for p in points_forts:
-                lignes.append(f"  - {p}")
-            lignes.append("")
+        lignes.append("")
 
-        # Points de vigilance
-        vigilances = []
-        if taux > self.SEUIL_COBAC:
-            vigilances.append(
-                f"Taux d'endettement de {taux:.1f}% dépasse le seuil "
-                f"légal COBAC de 33%. Dossier non recevable en l'état."
-            )
-        if mensualite > traite_max:
-            vigilances.append(
-                f"La mensualité demandée ({mensualite:,.0f} FCFA) dépasse "
-                f"la traite maximale autorisée ({traite_max:,.0f} FCFA)."
-            )
-        if credits > salaire * 0.20:
-            vigilances.append(
-                f"Niveau de crédits en cours élevé "
-                f"({credits:,.0f} FCFA) dans d'autres institutions."
-            )
-        if self.client.anciennete < 2:
-            vigilances.append(
-                "Ancienneté professionnelle inférieure à 2 ans — "
-                "risque de stabilité d'emploi."
-            )
-
-        if vigilances:
-            lignes.append("Points de vigilance :")
-            for v in vigilances:
-                lignes.append(f"  - {v}")
-            lignes.append("")
-
-        # Recommandation finale
+        # Conclusion style SCE
         if score_total >= self.SCORE_FAVORABLE:
-            lignes.append(
-                f"RECOMMANDATION : Dossier favorable (score {score_total}/100). "
-                f"Le profil du client présente une capacité de remboursement "
-                f"satisfaisante. Accord recommandé."
-            )
+            lignes.append("VU CAPACITÉ DE REMBOURSEMENT,")
+            lignes.append(f"VU QUOTITÉ ({float(dossier.quotite_relative):.2f}%),")
+            lignes.append("VU DOMICILIATION DU CLIENT,")
+            if impayes == 0:
+                lignes.append("VU ABSENCE D'IMPAYÉS À LA SCE,")
+            lignes.append("NOUS DONNONS UN AVIS FAVORABLE.")
+
         elif score_total >= self.SCORE_CONDITIONNEL:
-            lignes.append(
-                f"RECOMMANDATION : Dossier conditionnel (score {score_total}/100). "
-                f"Le dossier peut être accordé sous réserve de vérification "
-                f"complémentaire de l'historique bancaire et des engagements "
-                f"financiers en cours."
-            )
+            lignes.append("VU CAPACITÉ DE REMBOURSEMENT PARTIELLE,")
+            lignes.append(f"VU QUOTITÉ ({float(dossier.quotite_relative):.2f}%),")
+            lignes.append("NOUS DONNONS UN AVIS FAVORABLE SOUS CONDITIONS.")
+
         else:
-            lignes.append(
-                f"RECOMMANDATION : Dossier défavorable (score {score_total}/100). "
-                f"Le profil financier du client ne satisfait pas aux critères "
-                f"d'octroi de crédit de la SCE."
-            )
+            lignes.append("VU INSUFFISANCE DE LA CAPACITÉ DE REMBOURSEMENT,")
+            if impayes > 0:
+                lignes.append("VU PRÉSENCE D'IMPAYÉS EN COURS À LA SCE,")
+            if float(dossier.quotite_relative) > 33:
+                lignes.append(
+                    f"VU QUOTITÉ HORS SEUIL COBAC "
+                    f"({float(dossier.quotite_relative):.2f}% > 33%),")
+            lignes.append("NOUS DONNONS UN AVIS DÉFAVORABLE.")
 
         return "\n".join(lignes)
 
     def _generer_conditions(self, score_total, resultats):
-        """
-        Génère les conditions à imposer si la décision est CONDITIONNEL.
-
-        :return: str conditions ou chaîne vide
-        """
+        """Génère les conditions si décision conditionnelle."""
         if score_total < self.SCORE_CONDITIONNEL or \
            score_total >= self.SCORE_FAVORABLE:
             return ""
@@ -320,42 +359,31 @@ class MoteurScoring:
         if mensualite > traite_max * 0.90:
             montant_max = traite_max * self.dossier.duree_mois
             conditions.append(
-                f"Réduire le montant sollicité à {montant_max:,.0f} FCFA maximum "
-                f"pour respecter la traite maximale autorisée."
+                f"Réduire le montant à {montant_max:,.0f} FCFA maximum."
             )
 
         if self.client.anciennete < 5:
-            conditions.append(
-                "Fournir une caution solidaire d'un tiers solvable."
-            )
+            conditions.append("Fournir une caution solidaire.")
 
-        if self.client.credits_en_cours > 0:
+        if self.client.impayes.filter(statut='REGULARISE').exists():
             conditions.append(
-                "Justifier du solde exact des crédits en cours "
-                "dans les autres institutions financières."
+                "Justifier la régularisation complète des anciens impayés SCE."
             )
-
-        conditions.append(
-            "Fournir les 3 derniers relevés de compte bancaire "
-            "pour vérification de la régularité des mouvements."
-        )
 
         return "\n".join(f"- {c}" for c in conditions)
 
-    
+    # ------------------------------------------------------------------
     # Calcul final
+    # ------------------------------------------------------------------
+
     def calculer(self):
         """
-        Calcule le score global et retourne un dictionnaire
-        contenant tous les résultats du scoring avec recommandation.
-
-        :return: dict complet avec score, niveau_risque, decision,
-                 recommandation et détail des critères
+        Calcule le score global et retourne le dictionnaire complet.
         """
-        s_stabilite = self._score_stabilite()
-        s_capacite  = self._score_capacite()
-        s_historique = self._score_releve_bancaire()
-        s_dossier   = self._score_dossier()
+        s_stabilite  = self._score_stabilite()
+        s_capacite   = self._score_capacite()
+        s_historique = self._score_historique_sce()
+        s_dossier    = self._score_dossier()
 
         score_total = s_stabilite + s_capacite + s_historique + s_dossier
 
@@ -377,10 +405,8 @@ class MoteurScoring:
         else:
             decision = 'DEFAVORABLE'
 
-        # Délai de sécurité
         jour_salaire     = self.client.date_versement_salaire or 0
         jour_prelevement = self.dossier.jour_prelevement or 0
-        delai_securite   = jour_prelevement - jour_salaire
 
         resultats = {
             'score':                        score_total,
@@ -390,14 +416,13 @@ class MoteurScoring:
             'ratio_mensualite_salaire':     round(
                 (self.dossier.mensualite_estimee / self.client.salaire_net) * 100, 2
             ) if self.client.salaire_net else 0,
-            'delai_securite':               delai_securite,
+            'delai_securite':               jour_prelevement - jour_salaire,
             'score_stabilite_emploi':       s_stabilite,
             'score_capacite_remboursement': s_capacite,
             'score_profil_client':          s_historique,
             'score_dossier':                s_dossier,
         }
 
-        # Recommandation générée localement
         resultats['recommandation'] = self._generer_recommandation(
             score_total, resultats
         )
@@ -405,145 +430,4 @@ class MoteurScoring:
             score_total, resultats
         )
 
-        return resultats
-    
-    def _score_releve_bancaire(self):
-        """
-        Évalue le profil financier à partir de l'extraction
-        du relevé bancaire PDF via Gemini Vision.
-        Fallback sur les données déclarées si extraction échoue.
-        """
-        from dossiers.models import DocumentDossier
-        import os
-
-        score   = 0
-        salaire = float(self.client.salaire_net)
-
-        doc_releve = self.dossier.documents.filter(
-            type_document=DocumentDossier.TypeDocument.HISTORIQUE_BANQUE
-        ).first()
-
-        if doc_releve and doc_releve.fichier:
-            chemin = doc_releve.fichier.path
-
-            if os.path.exists(chemin):
-                try:
-                    from scoring.gemini import ExtracteurReleveGemini
-                    extracteur = ExtracteurReleveGemini()
-                    resultat   = extracteur.extraire(chemin)
-
-                    if resultat.succes and resultat.nb_operations > 0:
-                        moy_credits = float(resultat.moyenne_credits_mensuelle)
-
-                        # Points régularité des crédits (10 pts)
-                        if salaire > 0:
-                            if moy_credits >= salaire:
-                                score += 10
-                            elif moy_credits >= salaire * 0.80:
-                                score += 7
-                            elif moy_credits >= salaire * 0.50:
-                                score += 4
-                            else:
-                                score += 1
-
-                        # Points gestion des débits (10 pts)
-                        if not resultat.decouvert_detecte:
-                            score += 10
-                        elif resultat.solde_final and float(resultat.solde_final) > 0:
-                            score += 7
-                        else:
-                            score += 2
-
-                        # Points remboursements cachés (5 pts)
-                        remb = float(resultat.remboursements_credits)
-                        if remb == 0:
-                            score += 5
-                        elif salaire > 0 and remb < salaire * 0.10:
-                            score += 3
-                        else:
-                            score += 0
-
-                        return min(score, 25)
-
-                except Exception:
-                    pass
-
-        # Fallback → données déclarées
-        return self._score_historique_declare()
-
-    def _score_historique_declare(self):
-        """
-        Calcule le score historique sur la base des données
-        déclarées par le client quand le relevé n'est pas disponible.
-        """
-        score   = 0
-        salaire = self.client.salaire_net
-        credits = self.client.credits_en_cours
-
-        if credits == 0:
-            score += 15
-        elif salaire > 0 and credits <= salaire * Decimal('0.10'):
-            score += 10
-        elif salaire > 0 and credits <= salaire * Decimal('0.20'):
-            score += 5
-
-        jour_salaire     = self.client.date_versement_salaire or 0
-        jour_prelevement = self.dossier.jour_prelevement or 0
-
-        if jour_salaire and jour_prelevement:
-            delai = jour_prelevement - jour_salaire
-            if delai >= 5:
-                score += 10
-            elif delai >= 1:
-                score += 6
-        else:
-            score += 5
-
-        return min(score, 25)
-    def _generer_avis_motive(self):
-        """
-        Génère l'avis motivé dans le style SCE,
-        basé sur les critères réels de la Fiche 2.
-        """
-        client  = self.client
-        dossier = self.dossier
-
-        return (
-            f"{client.civilite} {client.nom} {client.prenom}, "
-            f"âgé(e) de {self._calculer_age()} ans, est "
-            f"{client.get_type_employeur_display().lower()} "
-            f"au sein de {client.nom_employeur}. "
-            f"C'est {self._qualifier_employeur()} "
-            f"Il/Elle sollicite un financement de "
-            f"{dossier.montant_sollicite:,.0f} FCFA "
-            f"pour {dossier.objet_financement.lower()}.\n\n"
-            f"Domiciliation du salaire : {client.nom_employeur}. "
-            f"Salaire : {client.salaire_net:,.0f} FCFA. "
-            f"Engagements bancaires : {dossier.echeance_mens_banque:,.0f} FCFA. "
-            f"Quotité relative : {dossier.quotite_relative:.2f}%. "
-            f"Traite : {dossier.mensualite_estimee:,.0f} FCFA. "
-            f"Durée : {dossier.duree_mois} mois.\n\n"
-            f"Conclusion : VU CAPACITÉ DE REMBOURSEMENT, "
-            f"VU QUOTITÉ ({dossier.quotite_relative:.2f}%), "
-            f"VU DOMICILIATION DU CLIENT, "
-            f"{'NOUS DONNONS UN AVIS FAVORABLE.' if self._score_capacite() >= 15 else 'NOUS DONNONS UN AVIS DÉFAVORABLE.'}"
-        )
-
-    def _calculer_age(self):
-        from datetime import date
-        today = date.today()
-        naissance = self.client.date_naissance
-        return today.year - naissance.year - (
-            (today.month, today.day) < (naissance.month, naissance.day)
-        )
-
-    def _qualifier_employeur(self):
-        qualifs = {
-            'FONCTIONNAIRE': "c'est l'État qui paie son salaire. Employeur fiable.",
-            'PRIVE':         "employeur du secteur privé.",
-            'ONG':           "employeur ONG/Association.",
-            'RETRAITE':      "retraité avec revenus fixes.",
-            'COMMERCANT':    "commerçant avec revenus variables.",
-            'AUTRE':         "employeur à vérifier.",
-        }
-        return qualifs.get(self.client.type_employeur, "")
+        return resultats 
