@@ -381,7 +381,7 @@ class ValidationDossier(models.Model):
         EN_ATTENTE = 'EN_ATTENTE', 'En attente'
 
     class Etape(models.TextChoices):
-        VISA_CHEF_1    = 'VISA_CHEF_1',    '1ère signature Chef d\'agence'
+        VISA_CHEF_AGENCE    = 'VISA_CHEF_AGENCE',    '1ère signature Chef d\'agence'
         AVIS_ANALYSTE1 = 'AVIS_ANALYSTE1', 'Avis Analyste 1'
         AVIS_ANALYSTE2 = 'AVIS_ANALYSTE2', 'Avis Analyste 2'
         VISA_CHEF_ANALYSTE    = 'VISA_CHEF_ANALYSTE',    '2ème signature Chef d\'analyste'
@@ -396,8 +396,10 @@ class ValidationDossier(models.Model):
         Utilisateur, on_delete=models.PROTECT,
         verbose_name='Validateur'
     )
-    etape       = models.CharField(
-        max_length=20, choices=Etape.choices,
+    etape = models.CharField(
+        max_length=20,
+        choices=Etape.choices,
+        default=Etape.VISA_CHEF_AGENCE,
         verbose_name='Étape du circuit'
     )
     decision    = models.CharField(
