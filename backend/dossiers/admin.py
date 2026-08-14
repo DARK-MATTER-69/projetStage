@@ -1,7 +1,21 @@
 from django.contrib import admin
 from .models import Client, Dossier, DocumentDossier, ValidationDossier
+from .models import HistoriqueSalaire, ImpayeSCE
 
 
+@admin.register(HistoriqueSalaire)
+class HistoriqueSalaireAdmin(admin.ModelAdmin):
+    list_display  = ['client', 'salaire', 'date_effet', 'note', 'enregistre_par']
+    list_filter   = ['date_effet']
+    search_fields = ['client__nom', 'client__prenom']
+    ordering      = ['-date_effet']
+
+@admin.register(ImpayeSCE)
+class ImpayeSCEAdmin(admin.ModelAdmin):
+    list_display  = ['client', 'dossier', 'montant_impaye', 'nb_mois_retard', 'statut', 'date_echeance']
+    list_filter   = ['statut']
+    search_fields = ['client__nom', 'client__prenom']
+    ordering      = ['-date_echeance']
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     list_display  = ['nom', 'prenom', 'type_employeur', 'salaire_net', 'cree_par', 'cree_le']

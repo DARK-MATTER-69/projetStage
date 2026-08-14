@@ -445,3 +445,174 @@ def analyser_releve(request, pk):
         'mensualite':            float(dossier.mensualite_estimee),
         'echeance_banque':       float(dossier.echeance_mens_banque),
     })
+    
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def historique_salaires(request, client_pk):
+    """
+    Liste et ajout d'historique salaire d'un client.
+
+    GET  /api/dossiers/clients/<id>/salaires/
+    POST /api/dossiers/clients/<id>/salaires/
+    """
+    from .models import HistoriqueSalaire, Client
+
+    client = get_object_or_404(Client, pk=client_pk)
+
+    if request.method == 'GET':
+        historique = HistoriqueSalaire.objects.filter(
+            client=client
+        ).order_by('-date_effet')
+        data = [
+            {
+                'id':           h.id,
+                'salaire':      float(h.salaire),
+                'date_effet':   h.date_effet,
+                'note':         h.note,
+                'enregistre_par': h.enregistre_par.get_full_name(),
+            }
+            for h in historique
+        ]
+        return Response(data)
+
+    elif request.method == 'POST':
+        salaire    = request.data.get('salaire')
+        date_effet = request.data.get('date_effet')
+        note       = request.data.get('note', '')
+
+        if not salaire or not date_effet:
+            return Response(
+                {'detail': 'Salaire et date d\'effet requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from decimal import Decimal
+        historique = HistoriqueSalaire.objects.create(
+            client         = client,
+            salaire        = Decimal(str(salaire)),
+            date_effet     = date_effet,
+            note           = note,
+            enregistre_par = request.user,
+        )
+
+        # Mettre à jour le salaire actuel du client
+        client.salaire_net = historique.salaire
+        client.save()
+
+        # Recalculer les scores des dossiers actifs
+        from scoring.moteur import MoteurScoring
+        scores_recalcules = MoteurScoring.recalculer_pour_client(client)
+
+        return Response({
+            'detail':           'Salaire mis à jour et scores recalculés.',
+            'scores_recalcules': len(scores_recalcules),
+        }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def impayes_client(request, client_pk):
+    """
+    Liste et ajout d'impayés d'un client SCE.
+
+    GET  /api/dossiers/clients/<id>/impayes/
+    POST /api/dossiers/clients/<id>/impayes/
+    """
+    from .models import ImpayeSCE, Client
+
+    client = get_object_or_404(Client, pk=client_pk)
+
+    if request.method == 'GET':
+        impayes = ImpayeSCE.objects.filter(client=client)
+        data = [
+            {
+                'id':                  i.id,
+                'dossier_id':          i.dossier.id,
+                'montant_impaye':      float(i.montant_impaye),
+                'date_echeance':       i.date_echeance,
+                'statut':              i.statut,
+                'statut_display':      i.get_statut_display(),
+                'nb_mois_retard':      i.nb_mois_retard,
+                'date_regularisation': i.date_regularisation,
+            }
+            for i in impayes
+        ]
+        return Response(data)
+
+    elif request.method == 'POST':
+        dossier_id    = request.data.get('dossier_id')
+        montant       = request.data.get('montant_impaye')
+        date_echeance = request.data.get('date_echeance')
+        nb_mois       = request.data.get('nb_mois_retard', 1)
+
+        if not all([dossier_id, montant, date_echeance]):
+            return Response(
+                {'detail': 'Dossier, montant et date d\'échéance requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from dossiers.models import Dossier
+        from decimal import Decimal
+
+        dossier = get_object_or_404(Dossier, pk=dossier_id, client=client)
+
+        ImpayeSCE.objects.create(
+            client          = client,
+            dossier         = dossier,
+            montant_impaye  = Decimal(str(montant)),
+            date_echeance   = date_echeance,
+            nb_mois_retard  = int(nb_mois),
+        )
+
+        # Recalculer le score du dossier concerné
+        from scoring.services import calculer_et_sauvegarder_score
+        calculer_et_sauvegarder_score(dossier)
+
+        return Response(
+            {'detail': 'Impayé enregistré et score recalculé.'},
+            status=status.HTTP_201_CREATED
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def regulariser_impaye(request, impaye_pk):
+    """
+    Régularise un impayé SCE.
+
+    POST /api/dossiers/impayes/<id>/regulariser/
+    """
+    from .models import ImpayeSCE
+    from datetime import date
+
+    impaye = get_object_or_404(ImpayeSCE, pk=impaye_pk)
+    impaye.statut              = ImpayeSCE.Statut.REGULARISE
+    impaye.date_regularisation = date.today()
+    impaye.save()
+
+    # Recalculer le score
+    from scoring.services import calculer_et_sauvegarder_score
+    calculer_et_sauvegarder_score(impaye.dossier)
+
+    return Response({'detail': 'Impayé régularisé et score recalculé.'})
+
+
+@api_view(['POST'])
+@permission_classes([EstCommercial])
+def recalculer_score(request, pk):
+    """
+    Recalcule le score d'un dossier manuellement.
+    Utilisé après modification des infos client.
+
+    POST /api/dossiers/<id>/recalculer/
+    """
+    dossier = get_object_or_404(Dossier, pk=pk)
+
+    from scoring.services import calculer_et_sauvegarder_score
+    score = calculer_et_sauvegarder_score(dossier)
+
+    return Response({
+        'detail': 'Score recalculé avec succès.',
+        'score':  score.score,
+        'decision': score.decision_ia,
+    })
