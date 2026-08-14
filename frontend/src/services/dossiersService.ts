@@ -61,6 +61,15 @@ export const dossiersService = {
     const { data } = await api.post(`/api/dossiers/${id}/valider/`, payload);
     return data;
   },
+  
+  /**
+   * Recalcule manuellement le score d'un dossier
+   * (ex : après modification des infos client hors salaire).
+   */
+  recalculer: async (id: number) => {
+    const { data } = await api.post(`/api/dossiers/${id}/recalculer/`);
+    return data;
+  },
 
   /**
    * Upload un document pour un dossier.
