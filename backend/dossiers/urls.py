@@ -15,7 +15,6 @@ urlpatterns = [
     path('<int:pk>/soumettre/',                    views.soumettre_dossier,            name='soumettre_dossier'),
     path('<int:pk>/valider/',                      views.valider_dossier,              name='valider_dossier'),
     path('<int:pk>/documents/',                    views.upload_document,              name='upload_document'),
-    path('<int:pk>/analyser-releve/',              views.analyser_releve,              name='analyser_releve'),
     path('<int:pk>/recalculer/',                   views.recalculer_score,             name='recalculer_score'),
 
     # Dashboard

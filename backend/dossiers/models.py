@@ -115,8 +115,6 @@ class Dossier(models.Model):
 
     class Statut(models.TextChoices):
         BROUILLON        = 'BROUILLON',        'Brouillon'
-        ANALYSE_RELEVE   = 'ANALYSE_RELEVE',   'Analyse du relevé en cours'
-        NON_CONFORME     = 'NON_CONFORME',     'Dossier non conforme'
         PRET_A_SOUMETTRE = 'PRET_A_SOUMETTRE', 'Prêt à soumettre'
         SOUMIS           = 'SOUMIS',           'Soumis au chef d\'agence'
         VALIDE_CHEF_1    = 'VALIDE_CHEF_1',    'Validé chef d\'agence (1ère signature)'
@@ -191,36 +189,6 @@ class Dossier(models.Model):
         verbose_name='Mode de paiement'
     )
 
-    # ── Résultat extraction Gemini du relevé bancaire ───────
-    releve_total_credits   = models.DecimalField(
-        max_digits=14, decimal_places=2, null=True, blank=True,
-        verbose_name='Total crédits relevé 3 mois (FCFA)'
-    )
-    releve_total_debits    = models.DecimalField(
-        max_digits=14, decimal_places=2, null=True, blank=True,
-        verbose_name='Total débits relevé 3 mois (FCFA)'
-    )
-    releve_remboursements  = models.DecimalField(
-        max_digits=14, decimal_places=2, default=0,
-        verbose_name='Remboursements crédits détectés (FCFA/mois)'
-    )
-    releve_solde_moyen     = models.DecimalField(
-        max_digits=14, decimal_places=2, null=True, blank=True,
-        verbose_name='Solde moyen relevé (FCFA)'
-    )
-    releve_decouvert       = models.BooleanField(
-        default=False, verbose_name='Découvert détecté sur relevé'
-    )
-    releve_banque          = models.CharField(
-        max_length=100, blank=True,
-        verbose_name='Banque détectée sur relevé'
-    )
-    releve_analyse_ok      = models.BooleanField(
-        null=True, verbose_name='Relevé conforme'
-    )
-    releve_raisons_refus   = models.TextField(
-        blank=True, verbose_name='Raisons de non-conformité'
-    )
 
     # ── Circuit de validation ───────────────────────────────
     statut           = models.CharField(
