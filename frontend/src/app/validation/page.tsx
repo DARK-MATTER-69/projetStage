@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { dossiersService } from "@/services/dossiersService";
+import { analystesService, Analyste } from "@/services/analystesService";
+import { useAuthStore } from "@/store/authStore";
 import { EtatChargement } from "@/components/ui/EtatChargement";
 import MainLayout from "@/components/layout/MainLayout";
 
 interface DossierValidation {
-  id:               number;
-  client_nom:       string;
-  commercial_nom:   string;
-  type_credit:      string;
+  id:                number;
+  client_nom:        string;
+  commercial_nom:    string;
+  type_credit:       string;
+  type_credit_display: string;
   montant_sollicite: number;
-  duree_mois:       number;
-  statut:           string;
-  necessite_comite: boolean;
-  score:            number;
-  niveau_risque:    string;
-  decision_ia:      string;
-  cree_le:          string;
+  duree_mois:        number;
+  statut:            string;
+  necessite_comite:  boolean;
+  score:             number | null;
+  niveau_risque:     string | null;
+  decision_ia:       string | null;
+  cree_le:           string;
 }
 
 const COULEURS_RISQUE: Record<string, string> = {
@@ -34,66 +36,71 @@ const COULEURS_DECISION: Record<string, string> = {
   DEFAVORABLE:  "text-red-600 bg-red-50",
 };
 
-// Données de démonstration
-const DOSSIERS: DossierValidation[] = [
-  {
-    id: 1, client_nom: "Mbarga Jean-Pierre",
-    commercial_nom: "Noubissie Brayann",
-    type_credit: "Équipement", montant_sollicite: 850000,
-    duree_mois: 12, statut: "SOUMIS",
-    necessite_comite: false, score: 74,
-    niveau_risque: "MOYEN", decision_ia: "FAVORABLE",
-    cree_le: "2025-08-08",
-  },
-  {
-    id: 2, client_nom: "Ngo Nathalie",
-    commercial_nom: "Noubissie Brayann",
-    type_credit: "Consommation", montant_sollicite: 1200000,
-    duree_mois: 24, statut: "SOUMIS",
-    necessite_comite: false, score: 61,
-    niveau_risque: "MOYEN", decision_ia: "CONDITIONNEL",
-    cree_le: "2025-08-07",
-  },
-  {
-    id: 3, client_nom: "Ateba Martin",
-    commercial_nom: "Noubissie Brayann",
-    type_credit: "Équipement", montant_sollicite: 6500000,
-    duree_mois: 36, statut: "ANALYSE_TERMINEE",
-    necessite_comite: true, score: 82,
-    niveau_risque: "FAIBLE", decision_ia: "FAVORABLE",
-    cree_le: "2025-08-06",
-  },
-  {
-    id: 4, client_nom: "Kameni Christelle",
-    commercial_nom: "Noubissie Brayann",
-    type_credit: "Scolaire", montant_sollicite: 400000,
-    duree_mois: 6, statut: "SOUMIS",
-    necessite_comite: false, score: 38,
-    niveau_risque: "ELEVE", decision_ia: "DEFAVORABLE",
-    cree_le: "2025-08-05",
-  },
-];
+const LABELS_DECISION: Record<string, string> = {
+  FAVORABLE:    "Favorable",
+  CONDITIONNEL: "Conditionnel",
+  DEFAVORABLE:  "Défavorable",
+};
 
 const formaterMontant = (v: number) =>
   new Intl.NumberFormat("fr-FR").format(v) + " FCFA";
 
+/**
+ * Détermine si la décision de l'utilisateur connecté sur ce dossier
+ * nécessite l'assignation d'un analyste (1er ou 2ème signataire).
+ */
+const requiertAssignation = (role: string | undefined, statut: string) => {
+  if (role === "CHEF_AGENCE" && statut === "SOUMIS")        return true;
+  if (role === "ANALYSTE"    && statut === "EN_ANALYSE_1")  return true;
+  return false;
+};
+
 interface ModalValidationProps {
-  dossier:   DossierValidation;
-  onFermer:  () => void;
-  onValider: (id: number, decision: string, commentaire: string) => void;
+  dossier:    DossierValidation;
+  roleActuel: string | undefined;
+  onFermer:   () => void;
+  onValider:  (id: number, decision: string, commentaire: string, assigneA?: number) => Promise<void>;
 }
 
-function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps) {
-  const [decision,     setDecision]     = useState("");
-  const [commentaire,  setCommentaire]  = useState("");
-  const [chargement,   setChargement]   = useState(false);
+function ModalValidation({ dossier, roleActuel, onFermer, onValider }: ModalValidationProps) {
+  const [decision,    setDecision]    = useState("");
+  const [commentaire, setCommentaire] = useState("");
+  const [analystes,   setAnalystes]   = useState<Analyste[]>([]);
+  const [analysteId,  setAnalysteId]  = useState<number | "">("");
+  const [chargement,  setChargement]  = useState(false);
+  const [erreur,      setErreur]      = useState("");
+
+  const assignationRequise = decision === "APPROUVE" &&
+    requiertAssignation(roleActuel, dossier.statut);
+
+  useEffect(() => {
+    if (!assignationRequise) return;
+    analystesService.lister()
+      .then(setAnalystes)
+      .catch(() => setAnalystes([]));
+  }, [assignationRequise]);
 
   const handleSubmit = async () => {
     if (!decision) return;
+    if (assignationRequise && !analysteId) {
+      setErreur("Vous devez sélectionner un analyste.");
+      return;
+    }
+
     setChargement(true);
-    await new Promise((r) => setTimeout(r, 800));
-    onValider(dossier.id, decision, commentaire);
-    setChargement(false);
+    setErreur("");
+    try {
+      await onValider(
+        dossier.id,
+        decision,
+        commentaire,
+        assignationRequise ? Number(analysteId) : undefined
+      );
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setErreur(error.response?.data?.detail || "Une erreur est survenue.");
+      setChargement(false);
+    }
   };
 
   return (
@@ -134,22 +141,24 @@ function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps)
                 {formaterMontant(dossier.montant_sollicite)}
               </span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Score IA</span>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full
-                                ${COULEURS_RISQUE[dossier.niveau_risque]}`}>
-                {dossier.score}/100
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Décision IA</span>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full
-                                ${COULEURS_DECISION[dossier.decision_ia]}`}>
-                {dossier.decision_ia === "FAVORABLE"    ? "Favorable"    :
-                 dossier.decision_ia === "CONDITIONNEL" ? "Conditionnel" :
-                 "Défavorable"}
-              </span>
-            </div>
+            {dossier.score !== null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Score IA</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full
+                                  ${COULEURS_RISQUE[dossier.niveau_risque ?? ""] ?? "text-gray-600 bg-gray-50"}`}>
+                  {dossier.score}/100
+                </span>
+              </div>
+            )}
+            {dossier.decision_ia && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Décision IA</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full
+                                  ${COULEURS_DECISION[dossier.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
+                  {LABELS_DECISION[dossier.decision_ia] ?? dossier.decision_ia}
+                </span>
+              </div>
+            )}
             {dossier.necessite_comite && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Comité</span>
@@ -191,6 +200,40 @@ function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps)
             </div>
           </div>
 
+          {/* Sélection de l'analyste (1ère ou 2ème signature) */}
+          {assignationRequise && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500
+                                 uppercase tracking-wide mb-2">
+                Assigner à l&apos;analyste *
+              </label>
+              {assignationRequise && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500
+                                    uppercase tracking-wide mb-2">
+                    Assigner à l&apos;analyste *
+                  </label>
+                  <select
+                    value={analysteId}
+                    onChange={(e) => setAnalysteId(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full h-10 border border-gray-200 rounded-lg px-3 text-sm
+                              text-gray-700 bg-white focus:outline-none
+                              focus:border-[#922b00] focus:ring-2 focus:ring-[#922b00]/10"
+                  >
+                    <option value="">Sélectionner un analyste</option>
+                    {analystes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nom} — {a.disponible
+                          ? "Libre"
+                          : `${a.dossiers_en_cours} dossier${a.dossiers_en_cours > 1 ? "s" : ""} en cours`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Commentaire */}
           <div>
             <label className="block text-xs font-medium text-gray-500
@@ -208,6 +251,13 @@ function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps)
                          focus:ring-2 focus:ring-[#922b00]/10 resize-none"
             />
           </div>
+
+          {erreur && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200
+                          rounded px-3 py-2">
+              {erreur}
+            </p>
+          )}
 
           {/* Boutons */}
           <div className="flex gap-3 pt-2">
@@ -235,14 +285,15 @@ function ModalValidation({ dossier, onFermer, onValider }: ModalValidationProps)
 }
 
 export default function ValidationPage() {
-const [dossiers,          setDossiers]          = useState<DossierValidation[]>([]);
-const [chargement,        setChargement]        = useState(true);
-const [dossierSelectionne, setDossierSelectionne] = useState<DossierValidation | null>(null);
+  const utilisateur = useAuthStore((s) => s.utilisateur);
 
-useEffect(() => {
+  const [dossiers,           setDossiers]           = useState<DossierValidation[]>([]);
+  const [chargement,         setChargement]         = useState(true);
+  const [dossierSelectionne, setDossierSelectionne] = useState<DossierValidation | null>(null);
+
   const charger = async () => {
     try {
-      const data = await dossiersService.lister();
+      const data  = await dossiersService.lister();
       const liste = (data.results || data) as DossierValidation[];
       setDossiers(liste);
     } catch {
@@ -251,24 +302,21 @@ useEffect(() => {
       setChargement(false);
     }
   };
-  charger();
-}, []);
 
-const handleValider = async (
-  id:          number,
-  decision:    string,
-  commentaire: string
-) => {
-  try {
-    await dossiersService.valider(id, { decision, commentaire });
-    // Recharger la liste après validation
-    const data = await dossiersService.lister();
-    setDossiers(data.results || data);
-  } catch {
-    // Silencieux
-  }
-  setDossierSelectionne(null);
-};
+  useEffect(() => {
+    charger();
+  }, []);
+
+  const handleValider = async (
+    id:          number,
+    decision:    string,
+    commentaire: string,
+    assigneA?:   number
+  ) => {
+    await dossiersService.valider(id, { decision, commentaire, assigne_a: assigneA });
+    await charger();
+    setDossierSelectionne(null);
+  };
 
   const dossiersEnAttente = dossiers.filter(
     (d) => !["APPROUVE", "REJETE"].includes(d.statut)
@@ -283,71 +331,81 @@ const handleValider = async (
       <div className="space-y-5">
 
         {/* Dossiers en attente */}
-        { chargement ? (
-            <EtatChargement message="Chargement des dossiers..." />
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {dossiersEnAttente.map((d) => (
-                <div key={d.id}
-                  className="px-5 py-4 flex items-center gap-4
-                             hover:bg-gray-50/50 transition-colors">
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50">
+            <h2 className="text-sm font-semibold text-gray-800">
+              En attente de validation
+            </h2>
+          </div>
 
-                  {/* Réf */}
-                  <p className="text-xs font-mono text-gray-400 w-16 flex-shrink-0">
-                    #{String(d.id).padStart(5, "0")}
-                  </p>
+          { chargement ? (
+              <EtatChargement message="Chargement des dossiers..." />
+            ) : dossiersEnAttente.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-gray-400">
+                Aucun dossier en attente.
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {dossiersEnAttente.map((d) => (
+                  <div key={d.id}
+                    className="px-5 py-4 flex items-center gap-4
+                               hover:bg-gray-50/50 transition-colors">
 
-                  {/* Client + commercial */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {d.client_nom}
+                    <p className="text-xs font-mono text-gray-400 w-16 flex-shrink-0">
+                      #{String(d.id).padStart(5, "0")}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {d.commercial_nom} · {d.type_credit}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {d.client_nom}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {d.commercial_nom} · {d.type_credit_display}
+                      </p>
+                    </div>
+
+                    <p className="text-sm text-gray-700 w-36 flex-shrink-0 text-right">
+                      {formaterMontant(d.montant_sollicite)}
                     </p>
+
+                    {d.score !== null ? (
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full
+                                        w-20 text-center flex-shrink-0
+                                        ${COULEURS_RISQUE[d.niveau_risque ?? ""] ?? "text-gray-600 bg-gray-50"}`}>
+                        {d.score}/100
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400 w-20 text-center flex-shrink-0">
+                        —
+                      </span>
+                    )}
+
+                    {d.decision_ia && (
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full
+                                        flex-shrink-0 ${COULEURS_DECISION[d.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
+                        {LABELS_DECISION[d.decision_ia] ?? d.decision_ia}
+                      </span>
+                    )}
+
+                    {d.necessite_comite && (
+                      <span className="text-[11px] font-medium px-2 py-1 rounded-full
+                                       bg-pink-50 text-pink-600 flex-shrink-0">
+                        Comité
+                      </span>
+                    )}
+
+                    <button
+                      onClick={() => setDossierSelectionne(d)}
+                      className="h-8 px-3 rounded-lg text-xs font-medium text-white
+                                 flex-shrink-0 transition-all hover:opacity-90"
+                      style={{ background: "#922b00" }}
+                    >
+                      Valider
+                    </button>
                   </div>
-
-                  {/* Montant */}
-                  <p className="text-sm text-gray-700 w-36 flex-shrink-0 text-right">
-                    {formaterMontant(d.montant_sollicite)}
-                  </p>
-
-                  {/* Score */}
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                    w-20 text-center flex-shrink-0
-                                    ${COULEURS_RISQUE[d.niveau_risque]}`}>
-                    {d.score}/100
-                  </span>
-
-                  {/* Décision IA */}
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                    flex-shrink-0 ${COULEURS_DECISION[d.decision_ia]}`}>
-                    {d.decision_ia === "FAVORABLE"    ? "Favorable"    :
-                     d.decision_ia === "CONDITIONNEL" ? "Conditionnel" :
-                     "Défavorable"}
-                  </span>
-
-                  {/* Comité */}
-                  {d.necessite_comite && (
-                    <span className="text-[11px] font-medium px-2 py-1 rounded-full
-                                     bg-pink-50 text-pink-600 flex-shrink-0">
-                      Comité
-                    </span>
-                  )}
-
-                  {/* Bouton valider */}
-                  <button
-                    onClick={() => setDossierSelectionne(d)}
-                    className="h-8 px-3 rounded-lg text-xs font-medium text-white
-                               flex-shrink-0 transition-all hover:opacity-90"
-                    style={{ background: "#922b00" }}
-                  >
-                    Valider
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
         </div>
 
         {/* Dossiers traités */}
@@ -369,7 +427,7 @@ const handleValider = async (
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {d.client_nom}
                     </p>
-                    <p className="text-xs text-gray-400">{d.type_credit}</p>
+                    <p className="text-xs text-gray-400">{d.type_credit_display}</p>
                   </div>
                   <p className="text-sm text-gray-700 w-36 flex-shrink-0 text-right">
                     {formaterMontant(d.montant_sollicite)}
@@ -393,6 +451,7 @@ const handleValider = async (
       {dossierSelectionne && (
         <ModalValidation
           dossier={dossierSelectionne}
+          roleActuel={utilisateur?.role}
           onFermer={() => setDossierSelectionne(null)}
           onValider={handleValider}
         />

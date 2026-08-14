@@ -56,6 +56,7 @@ export const dossiersService = {
   valider: async (id: number, payload: {
     decision:    string;
     commentaire: string;
+    assigne_a?:  number;
   }) => {
     const { data } = await api.post(`/api/dossiers/${id}/valider/`, payload);
     return data;

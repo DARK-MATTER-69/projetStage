@@ -37,7 +37,6 @@ interface DonneesDossier {
   appreciation:           string;
   date_debut_prelevement: string;
   jour_prelevement:       string;
-  // ── Fiche 2 réelle SCE ──────────────────────────────────
   echeance_mens_banque:   string;
   encours_sce:            string;
   assureur:               string;

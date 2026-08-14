@@ -101,3 +101,51 @@ class DetailUtilisateurView(generics.RetrieveUpdateDestroyAPIView):
     queryset            = Utilisateur.objects.all()
     serializer_class    = UtilisateurSerializer
     permission_classes  = [PermissionAdminUniquement]
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def liste_analystes(request):
+    """
+    Retourne la liste des analystes avec leur charge de travail actuelle,
+    pour permettre l'assignation d'un dossier à un analyste disponible.
+    Accessible aux chefs d'agence et analystes.
+
+    GET /api/auth/utilisateurs/analystes/
+    """
+    if request.user.role not in [
+        Utilisateur.Role.CHEF_AGENCE,
+        Utilisateur.Role.ANALYSTE,
+    ]:
+        return Response(
+            {'detail': 'Accès non autorisé.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    from django.db.models import Count, Q
+    from dossiers.models import Dossier
+
+    analystes = Utilisateur.objects.filter(
+        role=Utilisateur.Role.ANALYSTE
+    ).annotate(
+        dossiers_en_cours=Count(
+            'dossiers_assignes__dossier',
+            filter=Q(
+                dossiers_assignes__dossier__statut__in=[
+                    Dossier.Statut.EN_ANALYSE_1,
+                    Dossier.Statut.EN_ANALYSE_2,
+                ]
+            ),
+            distinct=True,
+        )
+    ).order_by('dossiers_en_cours', 'last_name')
+
+    data = [
+        {
+            'id':               a.id,
+            'nom':              a.get_full_name() or a.username,
+            'dossiers_en_cours': a.dossiers_en_cours,
+            'disponible':       a.dossiers_en_cours == 0,
+        }
+        for a in analystes
+    ]
+    return Response(data)

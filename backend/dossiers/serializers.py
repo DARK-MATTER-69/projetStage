@@ -62,6 +62,9 @@ class DossierListSerializer(serializers.ModelSerializer):
         source='commercial.get_full_name',
         read_only=True
     )
+    score            = serializers.IntegerField(source='score.score', read_only=True, default=None)
+    niveau_risque    = serializers.CharField(source='score.niveau_risque', read_only=True, default=None)
+    decision_ia      = serializers.CharField(source='score.decision_ia', read_only=True, default=None)
 
     class Meta:
         model  = Dossier
@@ -70,10 +73,10 @@ class DossierListSerializer(serializers.ModelSerializer):
             'type_credit', 'type_credit_display',
             'montant_sollicite', 'duree_mois',
             'statut', 'statut_display',
-            'necessite_comite', 'cree_le'
+            'necessite_comite', 'cree_le',
+            'score', 'niveau_risque', 'decision_ia',
         ]
         read_only_fields = ['id', 'necessite_comite', 'cree_le']
-
 
 class DossierDetailSerializer(serializers.ModelSerializer):
     client              = ClientSerializer(read_only=True)

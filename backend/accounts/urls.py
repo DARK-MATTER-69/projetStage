@@ -18,4 +18,5 @@ urlpatterns = [
     # Gestion des utilisateurs (admin)
     path('utilisateurs/',       views.ListeUtilisateursView.as_view(),   name='liste_utilisateurs'),
     path('utilisateurs/<int:pk>/', views.DetailUtilisateurView.as_view(), name='detail_utilisateur'),
+    path('utilisateurs/analystes/', views.liste_analystes, name='liste_analystes'),
 ]
