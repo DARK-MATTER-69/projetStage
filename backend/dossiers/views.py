@@ -85,14 +85,14 @@ class ListeDossiersView(generics.ListCreateAPIView):
             return Dossier.objects.filter(
                 statut__in=[
                     Dossier.Statut.SOUMIS,
-                    Dossier.Statut.VALIDE_CHEF,
+                    Dossier.Statut.VALIDE_CHEF_1,
                     Dossier.Statut.ANALYSE_TERMINEE,
                 ]
             )
 
         if user.est_analyste:
             return Dossier.objects.filter(
-                statut=Dossier.Statut.VALIDE_CHEF
+                statut=Dossier.Statut.VALIDE_CHEF_1
             )
 
         if user.est_direction:

@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 
 from accounts.models import Utilisateur
-from dossiers.models import Client, Dossier
+from dossiers.models import Client, Dossier, HistoriqueSalaire, ImpayeSCE
 from scoring.services import calculer_et_sauvegarder_score
 
 
@@ -18,7 +18,7 @@ class Command(BaseCommand):
             '--nombre',
             type=int,
             default=100,
-            help='Nombre de dossiers à générer (défaut : 600)'
+            help='Nombre de clients à générer (défaut : 100)'
         )
         parser.add_argument(
             '--depuis',
@@ -30,7 +30,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         nombre = options['nombre']
         depuis = options['depuis']
-        self.stdout.write(f'Génération de {nombre} dossiers en cours...')
+        self.stdout.write(f'Génération de {nombre} clients en cours...')
+        self._creer_equipe_test()
         self._generer(nombre, depuis)
 
     def _date_aleatoire(self, debut, fin):
@@ -38,23 +39,43 @@ class Command(BaseCommand):
         delta = fin - debut
         return debut + timedelta(days=random.randint(0, delta.days))
 
+    def _creer_equipe_test(self):
+        """
+        Crée un utilisateur de test par rôle du circuit,
+        pour pouvoir tester le workflow de validation complet.
+        """
+        equipe = [
+            ('commercial_test',  'Wansi',   'Brayann',  Utilisateur.Role.COMMERCIAL),
+            ('chef_test',        'Marie',   'Ateba',    Utilisateur.Role.CHEF_AGENCE),
+            ('analyste1_test',   'Paul',    'Ndongo',   Utilisateur.Role.ANALYSTE),
+            ('analyste2_test',   'Sarah',   'Fouda',    Utilisateur.Role.ANALYSTE),
+            ('direction_test',   'Jean',    'Mballa',   Utilisateur.Role.DIRECTION),
+            ('comite_test',      'Alice',   'Tchoumi',  Utilisateur.Role.COMITE),
+        ]
+
+        for username, prenom, nom, role in equipe:
+            utilisateur, cree = Utilisateur.objects.get_or_create(
+                username=username,
+                defaults={
+                    'first_name': prenom,
+                    'last_name':  nom,
+                    'role':       role,
+                    'agence':     'Yaoundé Centre',
+                }
+            )
+            if cree or not utilisateur.has_usable_password():
+                utilisateur.set_password('Test@1234')
+                utilisateur.save()
+
+        self.stdout.write(self.style.SUCCESS(
+            'Équipe de test prête (mot de passe : Test@1234 pour tous).'
+        ))
+
     def _generer(self, nombre, depuis=0):
-        """Génère les clients et dossiers fictifs en évitant les doublons."""
+        """Génère les clients et leur historique de dossiers fictifs."""
 
-        commercial, created = Utilisateur.objects.get_or_create(
-            username='commercial_test',
-            defaults={
-                'first_name': 'Wansi',
-                'last_name':  'Brayann',
-                'role': Utilisateur.Role.COMMERCIAL,
-                'agence': 'Yaoundé Centre',
-            }
-        )
-        if created or not commercial.has_usable_password():
-            commercial.set_password('Test@1234')
-            commercial.save()
+        commercial = Utilisateur.objects.get(username='commercial_test')
 
-        # Calcule le prochain index disponible
         dernier_index = Client.objects.filter(
             numero_cni__startswith='CNI'
         ).count()
@@ -70,7 +91,8 @@ class Command(BaseCommand):
             ('RETRAITE', ['Retraité CNPS', 'Retraité Fonction Publique']),
         ]
 
-        types_credit = ['EQUIPEMENT', 'SCOLAIRE', 'CONSOMMATION']
+        types_credit  = ['EQUIPEMENT', 'SCOLAIRE', 'CONSOMMATION']
+        assureurs     = ['SAAR Assurances', 'Activa Assurances', 'Chanas Assurances', '']
 
         objets = [
             'Achat téléviseur et climatiseur',
@@ -82,83 +104,169 @@ class Command(BaseCommand):
             'Frais médicaux et hospitalisation',
         ]
 
-        villes = ['Yaoundé', 'Douala', 'Bafoussam', 'Garoua', 'Bertoua', 'Ngaoundéré']
+        villes    = ['Yaoundé', 'Douala', 'Bafoussam', 'Garoua', 'Bertoua', 'Ngaoundéré']
         quartiers = ['Bastos', 'Melen', 'Ngousso', 'Biyem-Assi', 'Akwa', 'Bonanjo']
-        postes = ['Agent', 'Cadre', 'Technicien', 'Directeur', 'Secrétaire', 'Comptable']
+        postes    = ['Agent', 'Cadre', 'Technicien', 'Directeur', 'Secrétaire', 'Comptable']
 
-        compteur = 0
+        # Statuts finaux possibles pour qu'un dossier compte pour l'entraînement ML
+        # (BROUILLON est exclu par charger_donnees())
+        statuts_en_cours = [
+            Dossier.Statut.SOUMIS, Dossier.Statut.VALIDE_CHEF_1,
+            Dossier.Statut.EN_ANALYSE_1, Dossier.Statut.EN_ANALYSE_2,
+            Dossier.Statut.ANALYSE_TERMINEE, Dossier.Statut.EN_DECISION,
+            Dossier.Statut.EN_COMITE,
+        ]
+
+        compteur_clients  = 0
+        compteur_dossiers = 0
 
         for i in range(debut, debut + nombre):
             type_emp, noms_employeurs = random.choice(employeurs)
 
-            # Salaire selon type d'employeur
             salaires = {
                 'FONCTIONNAIRE': (80,  400),
-                'RETRAITE': (60,  200),
-                'PRIVE': (100, 500),
-                'ONG': (150, 600),
-                'COMMERCANT': (50,  300),
+                'RETRAITE':      (60,  200),
+                'PRIVE':         (100, 500),
+                'ONG':           (150, 600),
+                'COMMERCANT':    (50,  300),
             }
             mini, maxi = salaires[type_emp]
-            salaire = Decimal(random.randint(mini, maxi) * 1000)
-            anciennete = random.randint(0, 25)
-            charges = salaire * Decimal(str(round(random.uniform(0.05, 0.25), 2)))
-            credits_en_cours = salaire * Decimal(str(round(random.uniform(0.00, 0.20), 2)))
-            jour_salaire = random.choice([15, 25, 28, 30])
-            jour_prelevement = max(1, min(28, jour_salaire + random.randint(-3, 10)))
+            salaire_initial   = Decimal(random.randint(mini, maxi) * 1000)
+            anciennete        = random.randint(0, 25)
+            charges           = salaire_initial * Decimal(str(round(random.uniform(0.05, 0.25), 2)))
+            credits_en_cours  = salaire_initial * Decimal(str(round(random.uniform(0.00, 0.20), 2)))
+            jour_salaire      = random.choice([15, 25, 28, 30])
+
+            # Profil de risque du client — influence impayés et rejets
+            profil_risque = random.random()   # 0 = très fiable, 1 = risqué
 
             try:
                 client = Client.objects.create(
-                    civilite  = random.choice(['M', 'MME']),
-                    nom= f'CLIENT{i:04d}',
-                    prenom  = f'Prenom{i:04d}',
-                    date_naissance= self._date_aleatoire(
+                    civilite                = random.choice(['M', 'MME']),
+                    nom                     = f'CLIENT{i:04d}',
+                    prenom                  = f'Prenom{i:04d}',
+                    date_naissance          = self._date_aleatoire(
                         date(1965, 1, 1), date(2000, 1, 1)
                     ),
-                    lieu_naissance   = random.choice(villes),
-                    nationalite   = 'Camerounaise',
-                    numero_cni = f'CNI{i:08d}',
-                    telephone= f'6{random.randint(10000000, 99999999)}',
-                    adresse = f'Quartier {random.choice(quartiers)}',
-                    type_employeur = type_emp,
-                    nom_employeur = random.choice(noms_employeurs),
-                    poste_occupe = random.choice(postes),
-                    anciennete = anciennete,
-                    salaire_net = salaire,
-                    charges_mensuelles  = charges,
-                    credits_en_cours  = credits_en_cours,
-                    date_versement_salaire = jour_salaire,
-                    cree_par = commercial,
+                    lieu_naissance          = random.choice(villes),
+                    nationalite             = 'Camerounaise',
+                    numero_cni              = f'CNI{i:08d}',
+                    telephone               = f'6{random.randint(10000000, 99999999)}',
+                    adresse                 = f'Quartier {random.choice(quartiers)}',
+                    type_employeur          = type_emp,
+                    nom_employeur           = random.choice(noms_employeurs),
+                    poste_occupe            = random.choice(postes),
+                    anciennete              = anciennete,
+                    salaire_net             = salaire_initial,
+                    charges_mensuelles      = charges,
+                    credits_en_cours        = credits_en_cours,
+                    date_versement_salaire  = jour_salaire,
+                    cree_par                = commercial,
                 )
+                compteur_clients += 1
 
-                montant = Decimal(random.randint(1, 20) * 100000)
-                duree   = random.choice([6, 12, 18, 24, 36])
+                # ── Historique salarial (1 à 3 revalorisations) ──────
+                salaire_courant = salaire_initial
+                nb_revalorisations = random.randint(0, 2)
+                date_effet = date.today() - timedelta(days=random.randint(400, 1000))
 
-                dossier = Dossier.objects.create(
-                    client  = client,
-                    commercial = commercial,
-                    type_credit  = random.choice(types_credit),
-                    montant_sollicite = montant,
-                    duree_mois  = duree,
-                    objet_financement = random.choice(objets),
-                    appreciation= (
-                        f'Client sérieux avec {anciennete} ans d\'ancienneté. '
-                        f'Dossier complet et conforme.'
-                    ),
-                    jour_prelevement  = jour_prelevement,
+                HistoriqueSalaire.objects.create(
+                    client         = client,
+                    salaire        = salaire_courant,
+                    date_effet     = date_effet,
+                    note           = 'Salaire initial',
+                    enregistre_par = commercial,
                 )
+                for _ in range(nb_revalorisations):
+                    date_effet      = date_effet + timedelta(days=random.randint(120, 300))
+                    salaire_courant = salaire_courant * Decimal(str(round(random.uniform(1.05, 1.30), 2)))
+                    HistoriqueSalaire.objects.create(
+                        client         = client,
+                        salaire        = salaire_courant,
+                        date_effet     = min(date_effet, date.today()),
+                        note           = random.choice(['Promotion', 'Revalorisation', 'Changement de poste']),
+                        enregistre_par = commercial,
+                    )
+                client.salaire_net = salaire_courant
+                client.save()
 
-                calculer_et_sauvegarder_score(dossier)
-                compteur += 1
+                # ── 1 à 3 dossiers, pour construire un historique ────
+                nb_dossiers = random.randint(1, 3)
+                dossiers_client = []
 
-                if compteur % 50 == 0:
-                    self.stdout.write(f'  {compteur}/{nombre} dossiers generés...')
+                for n in range(nb_dossiers):
+                    montant = Decimal(random.randint(1, 20) * 100000)
+                    duree   = random.choice([6, 12, 18, 24, 36])
+                    echeance_banque = Decimal(random.randint(0, 3) * 15000)
+                    encours_sce     = Decimal(random.randint(0, 2) * 200000)
+
+                    dossier = Dossier.objects.create(
+                        client                 = client,
+                        commercial             = commercial,
+                        type_credit            = random.choice(types_credit),
+                        montant_sollicite      = montant,
+                        duree_mois             = duree,
+                        objet_financement      = random.choice(objets),
+                        appreciation           = (
+                            f'Client sérieux avec {anciennete} ans d\'ancienneté. '
+                            f'Dossier complet et conforme.'
+                        ),
+                        jour_prelevement       = max(1, min(28, jour_salaire + random.randint(-3, 10))),
+                        echeance_mens_banque   = echeance_banque,
+                        encours_sce            = encours_sce,
+                        assureur               = random.choice(assureurs),
+                        montant_assurance_ttc  = montant * Decimal('0.02') if random.random() > 0.3 else Decimal('0'),
+                        avi                    = random.random() > 0.5,
+                        delegation_salaire     = random.random() > 0.6,
+                    )
+
+                    # Dernier dossier du client = en cours ; les précédents = déjà tranchés
+                    est_dernier = (n == nb_dossiers - 1)
+                    if est_dernier:
+                        dossier.statut = random.choice(statuts_en_cours)
+                    else:
+                        dossier.statut = (
+                            Dossier.Statut.REJETE if random.random() < profil_risque * 0.4
+                            else Dossier.Statut.APPROUVE
+                        )
+                    dossier.save()
+
+                    calculer_et_sauvegarder_score(dossier)
+                    dossiers_client.append(dossier)
+                    compteur_dossiers += 1
+
+                # ── Impayés SCE (corrélés au profil de risque) ───────
+                if profil_risque > 0.7 and dossiers_client:
+                    nb_impayes = random.randint(1, 2)
+                    for _ in range(nb_impayes):
+                        dossier_concerne = random.choice(dossiers_client)
+                        regularise = random.random() > 0.5
+                        ImpayeSCE.objects.create(
+                            client              = client,
+                            dossier             = dossier_concerne,
+                            montant_impaye      = dossier_concerne.mensualite_estimee,
+                            date_echeance       = date.today() - timedelta(days=random.randint(30, 300)),
+                            nb_mois_retard      = random.randint(1, 6),
+                            statut              = (
+                                ImpayeSCE.Statut.REGULARISE if regularise
+                                else ImpayeSCE.Statut.EN_COURS
+                            ),
+                            date_regularisation = date.today() if regularise else None,
+                        )
+
+                if compteur_clients % 50 == 0:
+                    self.stdout.write(
+                        f'  {compteur_clients}/{nombre} clients '
+                        f'({compteur_dossiers} dossiers) générés...'
+                    )
 
             except Exception as e:
-                self.stdout.write(self.style.WARNING(f'Erreur dossier {i} : {e}'))
+                self.stdout.write(self.style.WARNING(f'Erreur client {i} : {e}'))
                 continue
 
         self.stdout.write(
-            self.style.SUCCESS(f'\nTerminé : {compteur} dossiers générés avec succès.')
-         )
-         
+            self.style.SUCCESS(
+                f'\nTerminé : {compteur_clients} clients et '
+                f'{compteur_dossiers} dossiers générés avec succès.'
+            )
+        )
