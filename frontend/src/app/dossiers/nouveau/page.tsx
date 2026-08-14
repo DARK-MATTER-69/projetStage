@@ -37,6 +37,13 @@ interface DonneesDossier {
   appreciation:           string;
   date_debut_prelevement: string;
   jour_prelevement:       string;
+  // ── Fiche 2 réelle SCE ──────────────────────────────────
+  echeance_mens_banque:   string;
+  encours_sce:            string;
+  assureur:               string;
+  montant_assurance_ttc:  string;
+  avi:                    boolean;
+  delegation_salaire:     boolean;
 }
 
 const ETAPES = [
@@ -110,6 +117,12 @@ export default function NouveauDossierPage() {
     appreciation:           "",
     date_debut_prelevement: "",
     jour_prelevement:       "",
+    echeance_mens_banque:   "0",
+    encours_sce:            "0",
+    assureur:               "",
+    montant_assurance_ttc:  "0",
+    avi:                    false,
+    delegation_salaire:     false,
   });
 
   const [documents, setDocuments] = useState<Record<string, File | null>>({
@@ -125,18 +138,20 @@ export default function NouveauDossierPage() {
   const majClient  = (champ: keyof DonneesClient,  val: string) =>
     setClient((prev) => ({ ...prev, [champ]: val }));
 
-  const majDossier = (champ: keyof DonneesDossier, val: string) =>
+  const majDossier = (champ: keyof DonneesDossier, val: string | boolean) =>
     setDossier((prev) => ({ ...prev, [champ]: val }));
 
   // Calculs en temps réel
-  const salaire         = parseFloat(client.salaire_net)        || 0;
-  const charges         = parseFloat(client.charges_mensuelles) || 0;
-  const creditsEnCours  = parseFloat(client.credits_en_cours)   || 0;
-  const montant         = parseFloat(dossier.montant_sollicite)  || 0;
-  const duree           = parseFloat(dossier.duree_mois)         || 1;
-  const mensualite      = montant / duree;
-  const traiteMax       = salaire * 0.33 - creditsEnCours;
-  const tauxEndettement = salaire > 0 ? ((charges + mensualite) / salaire) * 100 : 0;
+  const salaire          = parseFloat(client.salaire_net)          || 0;
+  const charges          = parseFloat(client.charges_mensuelles)   || 0;
+  const creditsEnCours   = parseFloat(client.credits_en_cours)     || 0;
+  const montant          = parseFloat(dossier.montant_sollicite)   || 0;
+  const duree            = parseFloat(dossier.duree_mois)          || 1;
+  const echeanceBanque   = parseFloat(dossier.echeance_mens_banque) || 0;
+  const mensualite       = montant / duree;
+  const traiteMax        = salaire * 0.33 - creditsEnCours;
+  const tauxEndettement  = salaire > 0 ? ((charges + mensualite) / salaire) * 100 : 0;
+  const quotiteRelative  = salaire > 0 ? ((echeanceBanque + mensualite) / salaire) * 100 : 0;
   const necessite_comite = montant > 5_000_000;
 
   const handleSoumettre = async () => {
@@ -176,6 +191,12 @@ export default function NouveauDossierPage() {
       appreciation:           dossier.appreciation,
       date_debut_prelevement: dossier.date_debut_prelevement,
       jour_prelevement:       Number(dossier.jour_prelevement),
+      echeance_mens_banque:   Number(dossier.echeance_mens_banque),
+      encours_sce:            Number(dossier.encours_sce),
+      assureur:               dossier.assureur,
+      montant_assurance_ttc:  Number(dossier.montant_assurance_ttc),
+      avi:                    dossier.avi,
+      delegation_salaire:     dossier.delegation_salaire,
     });
 
     // Étape 3 — Uploader les documents
@@ -446,7 +467,7 @@ export default function NouveauDossierPage() {
                     onChange={(e) => majDossier("duree_mois", e.target.value)}
                     className={selectClass}>
                     <option value="">Sélectionner</option>
-                    {[6, 12, 18, 24, 36, 48].map((m) => (
+                    {[6, 12, 18, 24, 36, 48, 60].map((m) => (
                       <option key={m} value={m}>{m} mois</option>
                     ))}
                   </select>
@@ -486,6 +507,55 @@ export default function NouveauDossierPage() {
               </Champ>
             </div>
 
+            {/* Données SCE — engagements existants */}
+            <div className="bg-white border border-gray-100 rounded-xl p-6 space-y-5">
+              <h2 className="text-sm font-semibold text-gray-800 border-b border-gray-50 pb-3">
+                Données SCE — Engagements existants
+              </h2>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Champ label="Echéance mensuelle banque (FCFA)">
+                  <input type="number" min="0" value={dossier.echeance_mens_banque}
+                    onChange={(e) => majDossier("echeance_mens_banque", e.target.value)}
+                    placeholder="0"
+                    className={inputClass} />
+                </Champ>
+                <Champ label="Encours SCE (FCFA)">
+                  <input type="number" min="0" value={dossier.encours_sce}
+                    onChange={(e) => majDossier("encours_sce", e.target.value)}
+                    placeholder="0"
+                    className={inputClass} />
+                </Champ>
+                <Champ label="Assureur">
+                  <input type="text" value={dossier.assureur}
+                    onChange={(e) => majDossier("assureur", e.target.value)}
+                    placeholder="Nom de l'assureur"
+                    className={inputClass} />
+                </Champ>
+                <Champ label="Montant assurance TTC (FCFA)">
+                  <input type="number" min="0" value={dossier.montant_assurance_ttc}
+                    onChange={(e) => majDossier("montant_assurance_ttc", e.target.value)}
+                    placeholder="0"
+                    className={inputClass} />
+                </Champ>
+              </div>
+
+              <div className="flex items-center gap-6 pt-1">
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={dossier.avi}
+                    onChange={(e) => majDossier("avi", e.target.checked)}
+                    className="w-4 h-4 accent-[#922b00]" />
+                  AVI
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={dossier.delegation_salaire}
+                    onChange={(e) => majDossier("delegation_salaire", e.target.checked)}
+                    className="w-4 h-4 accent-[#922b00]" />
+                  Délégation de salaire
+                </label>
+              </div>
+            </div>
+
             {/* Résumé financier temps réel */}
             {salaire > 0 && montant > 0 && (
               <div className="bg-white border border-gray-100 rounded-xl p-5">
@@ -506,9 +576,9 @@ export default function NouveauDossierPage() {
                       ok:     true,
                     },
                     {
-                      label: "Taux d'endettement",
-                      valeur: tauxEndettement.toFixed(1) + "%",
-                      ok:     tauxEndettement <= 33,
+                      label: "Quotité relative",
+                      valeur: quotiteRelative.toFixed(1) + "%",
+                      ok:     quotiteRelative <= 33,
                     },
                     {
                       label: "Passage en comité",

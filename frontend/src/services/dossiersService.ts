@@ -30,6 +30,12 @@ export const dossiersService = {
     appreciation:           string;
     date_debut_prelevement: string;
     jour_prelevement:       number;
+    echeance_mens_banque:  number;
+    encours_sce:           number;
+    assureur:              string;
+    montant_assurance_ttc: number;
+    avi:                   boolean;
+    delegation_salaire:    boolean;
   }) => {
     const { data } = await api.post("/api/dossiers/", payload);
     return data;
