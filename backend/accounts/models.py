@@ -12,14 +12,15 @@ class Utilisateur(AbstractUser):
 
     class Role(models.TextChoices):
         COMMERCIAL     = 'COMMERCIAL',     'Commercial'
-        CHEF_AGENCE    = 'CHEF_AGENCE',    "Chef d'agence"
+        CHEF_AGENCE_COMMERCIALE = 'CHEF_AGENCE_COMMERCIALE', "Chef d'agence commerciale"
+        CHEF_AGENCE_ANALYSE     = 'CHEF_AGENCE_ANALYSE',     "Chef d'agence analyse"
         ANALYSTE       = 'ANALYSTE',       'Analyste Engagement'
         DIRECTION      = 'DIRECTION',      'Direction'
         COMITE         = 'COMITE',         'Comité'
         ADMINISTRATEUR = 'ADMINISTRATEUR', 'Administrateur'
 
     role = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=Role.choices,
         default=Role.COMMERCIAL,
         verbose_name='Rôle'
@@ -50,9 +51,17 @@ class Utilisateur(AbstractUser):
         return self.role == self.Role.COMMERCIAL
 
     @property
+    def est_chef_agence_commerciale(self):
+        return self.role == self.Role.CHEF_AGENCE_COMMERCIALE
+
+    @property
+    def est_chef_agence_analyse(self):
+        return self.role == self.Role.CHEF_AGENCE_ANALYSE
+
+    @property
     def est_chef_agence(self):
-        """Vérifie si l'utilisateur est chef d'agence."""
-        return self.role == self.Role.CHEF_AGENCE
+        """Vrai pour l'un ou l'autre chef d'agence — utile pour les vérifications génériques."""
+        return self.est_chef_agence_commerciale or self.est_chef_agence_analyse
 
     @property
     def est_analyste(self):

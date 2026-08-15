@@ -5,6 +5,7 @@ import Link from "next/link";
 import MainLayout from "@/components/layout/MainLayout";
 import { dossiersService } from "@/services/dossiersService";
 import { EtatChargement, EtatErreur } from "@/components/ui/EtatChargement";
+import JaugeScore from "@/components/ui/JaugeScore";
 
 interface DossierAnalyse {
   id:                  number;
@@ -17,12 +18,9 @@ interface DossierAnalyse {
   statut_display:      string;
   necessite_comite:    boolean;
   cree_le:             string;
-  score?: {
-    score:          number;
-    niveau_risque:  string;
-    decision_ia:    string;
-    decision_ia_display: string;
-  };
+  score:               number | null;
+  niveau_risque:       string;
+  decision_ia:         string | null;
 }
 
 const COULEURS_RISQUE: Record<string, string> = {
@@ -164,30 +162,20 @@ export default function AnalysePage() {
                     {d.score ? (
                       <div className="text-center">
                         <div className="relative w-16 h-16">
-                          <svg viewBox="0 0 100 100"
-                            className="w-full h-full -rotate-90">
-                            <circle cx="50" cy="50" r="40" fill="none"
-                              stroke="#f3f4f6" strokeWidth="12" />
-                            <circle cx="50" cy="50" r="40" fill="none"
-                              stroke={
-                                d.score.score >= 70 ? "#16a34a" :
-                                d.score.score >= 50 ? "#ea580c" : "#dc2626"
-                              }
-                              strokeWidth="12"
-                              strokeDasharray={`${2 * Math.PI * 40 * d.score.score / 100} ${2 * Math.PI * 40}`}
-                              strokeLinecap="round" />
-                          </svg>
+                          {d.score !== null && (
+                            <JaugeScore score={Number(d.score)} niveauRisque={String(d.niveau_risque ?? "")} taille={72} />
+                          )}
                           <div className="absolute inset-0 flex flex-col
                                           items-center justify-center">
                             <span className="text-sm font-bold text-gray-800">
-                              {d.score.score}
+                              {d.score}
                             </span>
                           </div>
                         </div>
                         <span className={`text-[10px] font-medium px-2 py-0.5
                                           rounded-full mt-1 inline-block
-                                          ${COULEURS_RISQUE[d.score.niveau_risque]}`}>
-                          {d.score.niveau_risque}
+                                          ${COULEURS_RISQUE[d.niveau_risque]}`}>
+                          {d.niveau_risque}
                         </span>
                       </div>
                     ) : (

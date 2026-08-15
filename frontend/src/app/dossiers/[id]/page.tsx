@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { dossiersService } from "@/services/dossiersService";
 import { EtatChargement, EtatErreur } from "@/components/ui/EtatChargement";
+import JaugeScore from "@/components/ui/JaugeScore";
 
 // Garder toutes les interfaces et composants Info, Section du fichier existant
 // Remplacer uniquement la fonction principale
@@ -219,14 +220,9 @@ export default function DetailDossierPage() {
                 <>
                   <div className="flex flex-col items-center gap-3">
                     <div className="relative w-28 h-28">
-                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                        <circle cx="50" cy="50" r="40" fill="none"
-                          stroke="#f3f4f6" strokeWidth="10" />
-                        <circle cx="50" cy="50" r="40" fill="none"
-                          stroke={couleurJauge} strokeWidth="10"
-                          strokeDasharray={`${2 * Math.PI * 40 * jaugeScore / 100} ${2 * Math.PI * 40}`}
-                          strokeLinecap="round" />
-                      </svg>
+                      {score && (
+                          <JaugeScore score={score.score} niveauRisque={score.niveau_risque} />
+                      )}
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-2xl font-bold text-gray-800">
                           {score.score}

@@ -103,17 +103,17 @@ export const clientsService = {
   },
 
   /**
-   * Recherche un client existant par son numéro CNI 
+   * Recherche des clients existants par numéro CNI 
    */
   rechercherParCni: async (cni: string) => {
     try {
       const { data } = await api.get("/api/dossiers/clients/recherche/", {
         params: { cni },
       });
-      return data;
+      return data as any[];
     } catch (err: unknown) {
       const error = err as { response?: { status?: number } };
-      if (error.response?.status === 404) return null;
+      if (error.response?.status === 404) return [];
       throw err;
     }
   },

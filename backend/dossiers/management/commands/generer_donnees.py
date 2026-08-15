@@ -46,11 +46,12 @@ class Command(BaseCommand):
         """
         equipe = [
             ('commercial_test',  'Wansi',   'Brayann',  Utilisateur.Role.COMMERCIAL),
-            ('chef_test',        'Marie',   'Ateba',    Utilisateur.Role.CHEF_AGENCE),
-            ('analyste1_test',   'Paul',    'Ndongo',   Utilisateur.Role.ANALYSTE),
-            ('analyste2_test',   'Sarah',   'Fouda',    Utilisateur.Role.ANALYSTE),
-            ('direction_test',   'Jean',    'Mballa',   Utilisateur.Role.DIRECTION),
-            ('comite_test',      'Alice',   'Tchoumi',  Utilisateur.Role.COMITE),
+            ('chef_test',        'Kaleuck',   'Sonya',    Utilisateur.Role.CHEF_AGENCE_COMMERCIALE),
+            ('chef_test',        'Kamdem',   'Rudy',    Utilisateur.Role.CHEF_AGENCE_ANALYSE),
+            ('analyste1_test',   'Siani',    'Ludivick',   Utilisateur.Role.ANALYSTE),
+            ('analyste2_test',   'Tchamni',   'Darlene',    Utilisateur.Role.ANALYSTE),
+            ('direction_test',   'Nintcheu',    'Delva',   Utilisateur.Role.DIRECTION),
+            ('comite_test',      'Ange',   'Douce',  Utilisateur.Role.COMITE),
         ]
 
         for username, prenom, nom, role in equipe:
@@ -98,7 +99,7 @@ class Command(BaseCommand):
             'Achat téléviseur et climatiseur',
             'Frais de scolarité universitaire',
             'Achat réfrigérateur et cuisinière',
-            'Achat moto pour usage personnel',
+            'Achat de terrain',
             'Achat matériaux de construction',
             'Achat ordinateur portable',
             'Frais médicaux et hospitalisation',

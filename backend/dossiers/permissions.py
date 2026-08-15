@@ -59,7 +59,8 @@ class PeutValiderDossier(BasePermission):
     """
 
     ROLES_AUTORISES = [
-        Utilisateur.Role.CHEF_AGENCE,
+        Utilisateur.Role.CHEF_AGENCE_COMMERCIALE,
+        Utilisateur.Role.CHEF_AGENCE_ANALYSE,
         Utilisateur.Role.ANALYSTE,
         Utilisateur.Role.DIRECTION,
         Utilisateur.Role.COMITE,

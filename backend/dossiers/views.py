@@ -81,13 +81,9 @@ class ListeDossiersView(generics.ListCreateAPIView):
         if user.est_commercial:
             return Dossier.objects.filter(commercial=user)
 
-        if user.est_chef_agence:
+        if user.est_chef_agence_commerciale:
             return Dossier.objects.filter(
-                statut__in=[
-                    Dossier.Statut.SOUMIS,
-                    Dossier.Statut.VALIDE_CHEF_1,
-                    Dossier.Statut.ANALYSE_TERMINEE,
-                ]
+                statut=Dossier.Statut.SOUMIS
             )
 
         if user.est_analyste:
@@ -95,6 +91,11 @@ class ListeDossiersView(generics.ListCreateAPIView):
                 statut=Dossier.Statut.VALIDE_CHEF_1
             )
 
+        if user.est_chef_agence_analyse:
+            return Dossier.objects.filter(
+                statut=Dossier.Statut.ANALYSE_TERMINEE
+        )
+            
         if user.est_direction:
             return Dossier.objects.filter(
                 statut=Dossier.Statut.ANALYSE_TERMINEE,
@@ -146,7 +147,12 @@ def soumettre_dossier(request, pk):
     dossier.soumis_le = timezone.now()
     dossier.save()
 
-    return Response({'detail': 'Dossier soumis avec succès. Score IA calculé.'})
+    return Response({
+        'detail':        'Dossier soumis avec succès. Score IA calculé.',
+        'score':         dossier.score.score,
+        'niveau_risque': dossier.score.niveau_risque,
+        'decision_ia':   dossier.score.decision_ia,
+    })
 
 
 @api_view(['POST'])
@@ -212,7 +218,7 @@ def valider_dossier(request, pk):
     if decision == ValidationDossier.Decision.REJETE:
         dossier.statut = Dossier.Statut.REJETE
 
-    elif user.est_chef_agence:
+    elif user.est_chef_agence_commerciale:
         if dossier.statut == Dossier.Statut.SOUMIS:
             if not assigne_a:
                 return Response(
@@ -220,13 +226,6 @@ def valider_dossier(request, pk):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             dossier.statut = Dossier.Statut.EN_ANALYSE_1
-
-        elif dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-            dossier.statut = Dossier.Statut.VALIDE_CHEF_2
-            if dossier.necessite_comite:
-                dossier.statut = Dossier.Statut.EN_COMITE
-            else:
-                dossier.statut = Dossier.Statut.EN_DECISION
 
     elif user.est_analyste:
         if dossier.statut == Dossier.Statut.EN_ANALYSE_1:
@@ -239,6 +238,13 @@ def valider_dossier(request, pk):
 
         elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
             dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
+
+    elif user.est_chef_agence_analyse:
+        if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
+            if dossier.necessite_comite:
+                dossier.statut = Dossier.Statut.EN_COMITE
+            else:
+                dossier.statut = Dossier.Statut.EN_DECISION
 
     elif user.est_direction:
         dossier.statut = Dossier.Statut.APPROUVE
@@ -258,22 +264,13 @@ def _determiner_etape(user, dossier):
 
     :return: str étape ou None si non autorisé
     """
-    if user.est_chef_agence:
+    if user.est_chef_agence_commerciale:
         if dossier.statut == Dossier.Statut.SOUMIS:
             return ValidationDossier.Etape.VISA_CHEF_1
+
+    if user.est_chef_agence_analyse:
         if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
             return ValidationDossier.Etape.VISA_CHEF_2
-
-    if user.est_analyste:
-        # Vérifier que ce dossier lui est bien assigné
-        derniere_validation = dossier.validations.filter(
-            assigne_a=user
-        ).last()
-
-        if dossier.statut == Dossier.Statut.EN_ANALYSE_1 and derniere_validation:
-            return ValidationDossier.Etape.AVIS_ANALYSTE1
-        if dossier.statut == Dossier.Statut.EN_ANALYSE_2 and derniere_validation:
-            return ValidationDossier.Etape.AVIS_ANALYSTE2
 
     if user.est_direction and dossier.statut == Dossier.Statut.EN_DECISION:
         return ValidationDossier.Etape.DECISION_DIR
@@ -513,25 +510,32 @@ def recalculer_score(request, pk):
 @permission_classes([IsAuthenticated])
 def rechercher_client(request):
     """
-    Recherche un client existant par son numéro CNI, pour la création
-    d'un nouveau prêt sans resaisir sa fiche. Accessible à tout
-    utilisateur authentifié (le CNI est un identifiant précis, pas
-    une recherche libre dans le portefeuille d'un autre commercial).
+    Recherche des clients par numéro CNI — recherche partielle,
+    insensible à la casse et aux espaces, tolère une saisie imprécise.
+    Retourne jusqu'à 5 candidats plutôt qu'un résultat unique.
 
     GET /api/dossiers/clients/recherche/?cni=<numero>
     """
-    cni = request.query_params.get('cni', '').strip()
-    if not cni:
+    from django.db.models import Value
+    from django.db.models.functions import Replace
+
+    cni_saisi = request.query_params.get('cni', '').strip().replace(' ', '')
+    if not cni_saisi:
         return Response(
             {'detail': 'Le paramètre cni est requis.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    client = Client.objects.filter(numero_cni__iexact=cni).first()
-    if not client:
+    clients = Client.objects.annotate(
+        cni_normalise=Replace('numero_cni', Value(' '), Value(''))
+    ).filter(
+        cni_normalise__icontains=cni_saisi
+    )[:5]
+
+    if not clients:
         return Response(
             {'detail': 'Aucun client trouvé avec ce numéro CNI.'},
             status=status.HTTP_404_NOT_FOUND
         )
 
-    return Response(ClientSerializer(client).data)
+    return Response(ClientSerializer(clients, many=True).data)

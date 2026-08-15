@@ -7,6 +7,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { clientsService } from "@/services/clientsService";
 import { dossiersService } from "@/services/dossiersService";
 import { EtatChargement, EtatErreur } from "@/components/ui/EtatChargement";
+import JaugeScore from "@/components/ui/JaugeScore";
 
 const formaterMontant = (v: number) =>
   new Intl.NumberFormat("fr-FR").format(v) + " FCFA";
@@ -401,7 +402,9 @@ export default function DetailClientPage() {
                     </p>
                     <p className="text-xs text-gray-400">
                       {formaterMontant(d.montant_sollicite)} · {d.duree_mois} mois
-                      {d.score !== null && d.score !== undefined && ` · Score ${d.score}/100`}
+                      {d.score !== null && d.score !== undefined && (
+                        <JaugeScore score={d.score} niveauRisque={d.niveau_risque} taille={56} />
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
