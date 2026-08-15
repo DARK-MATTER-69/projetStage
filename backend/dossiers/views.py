@@ -507,3 +507,31 @@ def recalculer_score(request, pk):
         'score':  score.score,
         'decision': score.decision_ia,
     })
+    
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def rechercher_client(request):
+    """
+    Recherche un client existant par son numéro CNI, pour la création
+    d'un nouveau prêt sans resaisir sa fiche. Accessible à tout
+    utilisateur authentifié (le CNI est un identifiant précis, pas
+    une recherche libre dans le portefeuille d'un autre commercial).
+
+    GET /api/dossiers/clients/recherche/?cni=<numero>
+    """
+    cni = request.query_params.get('cni', '').strip()
+    if not cni:
+        return Response(
+            {'detail': 'Le paramètre cni est requis.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    client = Client.objects.filter(numero_cni__iexact=cni).first()
+    if not client:
+        return Response(
+            {'detail': 'Aucun client trouvé avec ce numéro CNI.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    return Response(ClientSerializer(client).data)

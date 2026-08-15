@@ -101,4 +101,20 @@ export const clientsService = {
     const { data } = await api.post(`/api/dossiers/impayes/${impayeId}/regulariser/`);
     return data;
   },
+
+  /**
+   * Recherche un client existant par son numéro CNI 
+   */
+  rechercherParCni: async (cni: string) => {
+    try {
+      const { data } = await api.get("/api/dossiers/clients/recherche/", {
+        params: { cni },
+      });
+      return data;
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number } };
+      if (error.response?.status === 404) return null;
+      throw err;
+    }
+  },
 };
