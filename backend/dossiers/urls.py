@@ -17,6 +17,8 @@ urlpatterns = [
     path('<int:pk>/documents/',                    views.upload_document,              name='upload_document'),
     path('<int:pk>/recalculer/',                   views.recalculer_score,             name='recalculer_score'),
     path('clients/recherche/',                     views.rechercher_client,            name='rechercher_client'),
+    path('notifications/',                         views.mes_notifications,            name='mes_notifications'),
+    path('notifications/<int:pk>/lue/',            views.marquer_notification_lue,     name='notification_lue'),
 
     # Dashboard
     path('dashboard/stats/',                       views.stats_dashboard,              name='stats_dashboard'),

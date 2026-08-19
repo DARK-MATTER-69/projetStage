@@ -1,6 +1,7 @@
 from django.db import models
 from accounts.models import Utilisateur
 from decimal import Decimal
+from django.conf import settings
 
 
 class Client(models.Model):
@@ -115,6 +116,7 @@ class Dossier(models.Model):
 
     class Statut(models.TextChoices):
         BROUILLON        = 'BROUILLON',        'Brouillon'
+        DOCUMENTS_INCOMPLETS = 'DOCUMENTS_INCOMPLETS', 'Documents incomplets'
         PRET_A_SOUMETTRE = 'PRET_A_SOUMETTRE', 'Prêt à soumettre'
         SOUMIS           = 'SOUMIS',           'Soumis au chef d\'agence'
         VALIDE_CHEF_1    = 'VALIDE_CHEF_1',    'Validé chef d\'agence (1ère signature)'
@@ -488,3 +490,21 @@ class ImpayeSCE(models.Model):
 
     def __str__(self):
         return f"{self.client} — {self.montant_impaye:,.0f} FCFA — {self.get_statut_display()}"
+
+class Notification(models.Model):
+    """Notification simple envoyée à un utilisateur (ex: résultat d'un dossier)."""
+
+    destinataire = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    dossier   = models.ForeignKey(Dossier, on_delete=models.CASCADE, null=True)
+    message   = models.CharField(max_length=255)
+    lue       = models.BooleanField(default=False)
+    cree_le   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-cree_le']
+
+    def __str__(self):
+        return f'{self.destinataire} — {self.message}'

@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 
-from .models import Client, Dossier, DocumentDossier, ValidationDossier
+from .models import Client, Dossier, DocumentDossier, ValidationDossier, Notification
 from .serializers import (
     ClientSerializer,
     DossierListSerializer,
@@ -88,7 +88,10 @@ class ListeDossiersView(generics.ListCreateAPIView):
 
         if user.est_analyste:
             return Dossier.objects.filter(
-                statut=Dossier.Statut.VALIDE_CHEF_1
+                statut__in=[
+                    Dossier.Statut.EN_ANALYSE_1,
+                    Dossier.Statut.EN_ANALYSE_2,
+                ]
             )
 
         if user.est_chef_agence_analyse:
@@ -125,24 +128,28 @@ class DetailDossierView(generics.RetrieveUpdateAPIView):
 @api_view(['POST'])
 @permission_classes([EstCommercial])
 def soumettre_dossier(request, pk):
-    """
-    Soumet un dossier au chef d'agence et déclenche le scoring IA.
-    Réservé au commercial propriétaire du dossier.
-
-    POST /api/dossiers/<id>/soumettre/
-    """
     dossier = get_object_or_404(Dossier, pk=pk, commercial=request.user)
 
-    if dossier.statut != Dossier.Statut.BROUILLON:
+    if dossier.statut not in [Dossier.Statut.BROUILLON, Dossier.Statut.DOCUMENTS_INCOMPLETS]:
         return Response(
             {'detail': 'Ce dossier a déjà été soumis.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Calcul du score IA avant soumission
-    calculer_et_sauvegarder_score(dossier)
+    documents_requis = {'CNI', 'RIB', 'HISTORIQUE_BANQUE', 'NIU'}
+    documents_presents = set(
+        dossier.documents.values_list('type_document', flat=True)
+    )
+    manquants = documents_requis - documents_presents
+    if manquants:
+        dossier.statut = Dossier.Statut.DOCUMENTS_INCOMPLETS
+        dossier.save()
+        return Response(
+            {'detail': 'Documents manquants.', 'documents_manquants': list(manquants)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    # Mise à jour du statut
+    calculer_et_sauvegarder_score(dossier)
     dossier.statut    = Dossier.Statut.SOUMIS
     dossier.soumis_le = timezone.now()
     dossier.save()
@@ -174,6 +181,14 @@ def valider_dossier(request, pk):
     decision   = request.data.get('decision')
     commentaire = request.data.get('commentaire', '')
     assigne_a_id = request.data.get('assigne_a')
+    
+    def _notifier(dossier, message):
+        """Crée une notification pour le commercial propriétaire du dossier."""
+        Notification.objects.create(
+        destinataire=dossier.commercial,
+        dossier=dossier,
+        message=message,
+    )
 
     if not decision:
         return Response(
@@ -225,6 +240,8 @@ def valider_dossier(request, pk):
                     {'detail': 'Vous devez assigner un analyste.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            dossier.statut = Dossier.Statut.VALIDE_CHEF_1
+            dossier.save()
             dossier.statut = Dossier.Statut.EN_ANALYSE_1
 
     elif user.est_analyste:
@@ -239,12 +256,14 @@ def valider_dossier(request, pk):
         elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
             dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
 
-    elif user.est_chef_agence_analyse:
-        if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-            if dossier.necessite_comite:
-                dossier.statut = Dossier.Statut.EN_COMITE
-            else:
-                dossier.statut = Dossier.Statut.EN_DECISION
+        elif user.est_chef_agence_analyse:
+            if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
+                dossier.statut = Dossier.Statut.VALIDE_CHEF_2
+                dossier.save()
+                if dossier.necessite_comite:
+                    dossier.statut = Dossier.Statut.EN_COMITE
+                else:
+                    dossier.statut = Dossier.Statut.EN_DECISION
 
     elif user.est_direction:
         dossier.statut = Dossier.Statut.APPROUVE
@@ -253,6 +272,10 @@ def valider_dossier(request, pk):
         dossier.statut = Dossier.Statut.APPROUVE
 
     dossier.save()
+    if dossier.statut == Dossier.Statut.APPROUVE:
+        _notifier(dossier, f'Dossier #{dossier.id} approuvé.')
+    elif dossier.statut == Dossier.Statut.REJETE:
+        _notifier(dossier, f'Dossier #{dossier.id} rejeté.')
 
     return Response({'detail': 'Décision enregistrée avec succès.'})
 
@@ -539,3 +562,24 @@ def rechercher_client(request):
         )
 
     return Response(ClientSerializer(clients, many=True).data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def mes_notifications(request):
+    """GET /api/dossiers/notifications/ — notifications de l'utilisateur connecté."""
+    notifs = Notification.objects.filter(destinataire=request.user, lue=False)
+    data = [
+        {'id': n.id, 'message': n.message, 'dossier_id': n.dossier_id, 'cree_le': n.cree_le}
+        for n in notifs
+    ]
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def marquer_notification_lue(request, pk):
+    """POST /api/dossiers/notifications/<id>/lue/"""
+    notif = get_object_or_404(Notification, pk=pk, destinataire=request.user)
+    notif.lue = True
+    notif.save()
+    return Response({'detail': 'Notification marquée comme lue.'})
