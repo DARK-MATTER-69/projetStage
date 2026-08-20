@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Client, Dossier, DocumentDossier, ValidationDossier
 from accounts.serializers import UtilisateurSerializer
+from scoring.serializers import ScoreCreditSerializer
 
 
 class DocumentDossierSerializer(serializers.ModelSerializer):
@@ -95,6 +96,7 @@ class DossierDetailSerializer(serializers.ModelSerializer):
         source='get_type_credit_display',
         read_only=True
     )
+    score = ScoreCreditSerializer(read_only=True)
 
     # Propriétés calculées
     mensualite_estimee      = serializers.DecimalField(
@@ -128,7 +130,7 @@ class DossierDetailSerializer(serializers.ModelSerializer):
             'avi', 'delegation_salaire',
             # Statut et circuit
             'statut', 'statut_display',
-            'necessite_comite', 'documents', 'validations',
+            'necessite_comite', 'score','documents', 'validations',
             # Calculés
             'mensualite_estimee', 'taux_endettement',
             'traite_max_autorisee', 'est_traite_acceptable',

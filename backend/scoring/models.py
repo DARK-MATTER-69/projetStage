@@ -74,7 +74,7 @@ class ScoreCredit(models.Model):
         help_text='Basé sur la complétude des documents et le type de crédit'
     )
 
-    # Recommandation Gemini
+   # Recommandation et conditions du moteur de scoring
     recommandation       = models.TextField(
         blank=True,
         verbose_name='Recommandation',

@@ -28,8 +28,8 @@ class ScoreCreditSerializer(serializers.ModelSerializer):
             'score_capacite_remboursement',
             'score_profil_client',
             'score_dossier',
-            'recommandation_ia',
-            'conditions_proposees',
+            'recommandation',
+            'conditions',
             'calcule_le'
         ]
         read_only_fields = fields

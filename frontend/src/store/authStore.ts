@@ -54,6 +54,7 @@ export const useAuthStore = create<AuthStore>()(
       connexion: (access, refresh, utilisateur) => {
         // Stocker dans le cookie pour le middleware
         setCookie("access_token", access, 1);
+        setCookie("user_role", utilisateur.role, 1);
         set({
           accessToken:  access,
           refreshToken: refresh,
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthStore>()(
 
       deconnexion: () => {
         deleteCookie("access_token");
+        deleteCookie("user_role");
         set({
           accessToken:  null,
           refreshToken: null,

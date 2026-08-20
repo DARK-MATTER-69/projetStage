@@ -265,11 +265,13 @@ def valider_dossier(request, pk):
             else:
                 dossier.statut = Dossier.Statut.EN_DECISION
 
-    elif user.est_direction:
-        dossier.statut = Dossier.Statut.APPROUVE
-
     elif user.role == 'COMITE':
-        dossier.statut = Dossier.Statut.APPROUVE
+        if dossier.statut == Dossier.Statut.EN_COMITE:
+            dossier.statut = Dossier.Statut.EN_DECISION
+
+    elif user.est_direction:
+        if dossier.statut == Dossier.Statut.EN_DECISION:
+            dossier.statut = Dossier.Statut.APPROUVE
 
     dossier.save()
     if dossier.statut == Dossier.Statut.APPROUVE:
@@ -289,11 +291,17 @@ def _determiner_etape(user, dossier):
     """
     if user.est_chef_agence_commerciale:
         if dossier.statut == Dossier.Statut.SOUMIS:
-            return ValidationDossier.Etape.VISA_CHEF_1
+            return ValidationDossier.Etape.VISA_CHEF_AGENCE
+
+    if user.est_analyste:
+        if dossier.statut == Dossier.Statut.EN_ANALYSE_1:
+            return ValidationDossier.Etape.AVIS_ANALYSTE1
+        if dossier.statut == Dossier.Statut.EN_ANALYSE_2:
+            return ValidationDossier.Etape.AVIS_ANALYSTE2
 
     if user.est_chef_agence_analyse:
         if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-            return ValidationDossier.Etape.VISA_CHEF_2
+            return ValidationDossier.Etape.VISA_CHEF_ANALYSTE
 
     if user.est_direction and dossier.statut == Dossier.Statut.EN_DECISION:
         return ValidationDossier.Etape.DECISION_DIR
@@ -370,22 +378,12 @@ def historique_salaires(request, client_pk):
 
     client = get_object_or_404(Client, pk=client_pk)
 
-    if request.method == 'GET':
-        historique = HistoriqueSalaire.objects.filter(
-            client=client
-        ).order_by('-date_effet')
-        data = [
-            {
-                'id':           h.id,
-                'salaire':      float(h.salaire),
-                'date_effet':   h.date_effet,
-                'note':         h.note,
-                'enregistre_par': h.enregistre_par.get_full_name(),
-            }
-            for h in historique
-        ]
-        return Response(data)
-
+    if request.method == 'POST' and not request.user.est_commercial:
+        return Response(
+            {'detail': 'Seul le commercial peut effectuer cette action.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     elif request.method == 'POST':
         salaire    = request.data.get('salaire')
         date_effet = request.data.get('date_effet')
@@ -497,6 +495,11 @@ def regulariser_impaye(request, impaye_pk):
     from datetime import date
 
     impaye = get_object_or_404(ImpayeSCE, pk=impaye_pk)
+    if not request.user.est_commercial:
+        return Response(
+            {'detail': 'Seul le commercial peut effectuer cette action.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
     impaye.statut              = ImpayeSCE.Statut.REGULARISE
     impaye.date_regularisation = date.today()
     impaye.save()

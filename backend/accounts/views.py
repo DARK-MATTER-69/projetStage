@@ -113,7 +113,8 @@ def liste_analystes(request):
     GET /api/auth/utilisateurs/analystes/
     """
     if request.user.role not in [
-        Utilisateur.Role.CHEF_AGENCE,
+        Utilisateur.Role.CHEF_AGENCE_COMMERCIALE,
+        Utilisateur.Role.CHEF_AGENCE_ANALYSE,
         Utilisateur.Role.ANALYSTE,
     ]:
         return Response(

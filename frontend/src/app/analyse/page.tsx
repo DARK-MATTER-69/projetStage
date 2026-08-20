@@ -41,7 +41,7 @@ export default function AnalysePage() {
   useEffect(() => {
     const charger = async () => {
       try {
-        const data = await dossiersService.lister({ statut: "VALIDE_CHEF" });
+        const data = await dossiersService.lister();
         setDossiers(data.results || data);
       } catch {
         setErreur("Impossible de charger les dossiers.");

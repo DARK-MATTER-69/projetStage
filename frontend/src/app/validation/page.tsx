@@ -50,7 +50,7 @@ const formaterMontant = (v: number) =>
  * nécessite l'assignation d'un analyste (1er ou 2ème signataire).
  */
 const requiertAssignation = (role: string | undefined, statut: string) => {
-  if (role === "CHEF_AGENCE" && statut === "SOUMIS")        return true;
+  if (role === "CHEF_AGENCE_COMMERCIALE" && statut === "SOUMIS")  return true;
   if (role === "ANALYSTE"    && statut === "EN_ANALYSE_1")  return true;
   return false;
 };
@@ -351,7 +351,7 @@ export default function ValidationPage() {
                     className="px-5 py-4 flex items-center gap-4
                                hover:bg-gray-50/50 transition-colors">
 
-                    <p className="text-xs font-mono text-gray-400 w-16 flex-shrink-0">
+                    <p className="text-xs font-mono text-gray-400 w-16 shrink-0">
                       #{String(d.id).padStart(5, "0")}
                     </p>
 
@@ -364,32 +364,32 @@ export default function ValidationPage() {
                       </p>
                     </div>
 
-                    <p className="text-sm text-gray-700 w-36 flex-shrink-0 text-right">
+                    <p className="text-sm text-gray-700 w-36 shrink-0 text-right">
                       {formaterMontant(d.montant_sollicite)}
                     </p>
 
                     {d.score !== null ? (
                       <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                        w-20 text-center flex-shrink-0
+                                        w-20 text-center shrink-0
                                         ${COULEURS_RISQUE[d.niveau_risque ?? ""] ?? "text-gray-600 bg-gray-50"}`}>
                         {d.score}/100
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-400 w-20 text-center flex-shrink-0">
+                      <span className="text-xs text-gray-400 w-20 text-center shrink-0">
                         —
                       </span>
                     )}
 
                     {d.decision_ia && (
                       <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                        flex-shrink-0 ${COULEURS_DECISION[d.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
+                                        shrink-0 ${COULEURS_DECISION[d.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
                         {LABELS_DECISION[d.decision_ia] ?? d.decision_ia}
                       </span>
                     )}
 
                     {d.necessite_comite && (
                       <span className="text-[11px] font-medium px-2 py-1 rounded-full
-                                       bg-pink-50 text-pink-600 flex-shrink-0">
+                                       bg-pink-50 text-pink-600 shrink-0">
                         Comité
                       </span>
                     )}
@@ -397,7 +397,7 @@ export default function ValidationPage() {
                     <button
                       onClick={() => setDossierSelectionne(d)}
                       className="h-8 px-3 rounded-lg text-xs font-medium text-white
-                                 flex-shrink-0 transition-all hover:opacity-90"
+                                 shrink-0 transition-all hover:opacity-90"
                       style={{ background: "#922b00" }}
                     >
                       Valider
@@ -420,7 +420,7 @@ export default function ValidationPage() {
               {dossiersTraites.map((d) => (
                 <div key={d.id}
                   className="px-5 py-4 flex items-center gap-4">
-                  <p className="text-xs font-mono text-gray-400 w-16 flex-shrink-0">
+                  <p className="text-xs font-mono text-gray-400 w-16 shrink-0">
                     #{String(d.id).padStart(5, "0")}
                   </p>
                   <div className="flex-1 min-w-0">
@@ -429,11 +429,11 @@ export default function ValidationPage() {
                     </p>
                     <p className="text-xs text-gray-400">{d.type_credit_display}</p>
                   </div>
-                  <p className="text-sm text-gray-700 w-36 flex-shrink-0 text-right">
+                  <p className="text-sm text-gray-700 w-36 shrink-0 text-right">
                     {formaterMontant(d.montant_sollicite)}
                   </p>
                   <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                    flex-shrink-0
+                                    shrink-0
                                     ${d.statut === "APPROUVE"
                                       ? "bg-green-50 text-green-600"
                                       : "bg-red-50 text-red-600"

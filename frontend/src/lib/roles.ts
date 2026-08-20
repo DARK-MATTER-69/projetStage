@@ -4,34 +4,37 @@
  */
 
 export const ROLES = {
-  COMMERCIAL:     "COMMERCIAL",
-  CHEF_AGENCE:    "CHEF_AGENCE",
-  ANALYSTE:       "ANALYSTE",
-  DIRECTION:      "DIRECTION",
-  COMITE:         "COMITE",
-  ADMINISTRATEUR: "ADMINISTRATEUR",
+  COMMERCIAL:              "COMMERCIAL",
+  CHEF_AGENCE_COMMERCIALE: "CHEF_AGENCE_COMMERCIALE",
+  CHEF_AGENCE_ANALYSE:     "CHEF_AGENCE_ANALYSE",
+  ANALYSTE:                "ANALYSTE",
+  DIRECTION:               "DIRECTION",
+  COMITE:                  "COMITE",
+  ADMINISTRATEUR:          "ADMINISTRATEUR",
 } as const;
 
 export type Role = keyof typeof ROLES;
 
 /** Routes accessibles par rôle */
 export const ROUTES_PAR_ROLE: Record<string, string[]> = {
-  COMMERCIAL:     ["/dashboard", "/dossiers", "/clients", "/profil"],
-  CHEF_AGENCE:    ["/dashboard", "/dossiers", "/validation", "/profil"],
-  ANALYSTE:       ["/dashboard", "/dossiers", "/analyse", "/profil"],
-  DIRECTION:      ["/dashboard", "/dossiers", "/validation", "/profil"],
-  COMITE:         ["/dashboard", "/dossiers", "/validation", "/profil"],
-  ADMINISTRATEUR: ["/dashboard", "/dossiers", "/clients", "/validation", "/analyse", "/admin", "/profil"],
+  COMMERCIAL:              ["/dashboard", "/dossiers", "/clients", "/profil"],
+  CHEF_AGENCE_COMMERCIALE: ["/dashboard", "/dossiers", "/validation", "/profil"],
+  CHEF_AGENCE_ANALYSE:     ["/dashboard", "/dossiers", "/validation", "/profil"],
+  ANALYSTE:                ["/dashboard", "/dossiers", "/analyse", "/profil"],
+  DIRECTION:               ["/dashboard", "/dossiers", "/validation", "/profil"],
+  COMITE:                  ["/dashboard", "/dossiers", "/validation", "/profil"],
+  ADMINISTRATEUR:          ["/dashboard", "/dossiers", "/clients", "/validation", "/analyse", "/admin", "/profil"],
 };
 
 /** Labels affichés dans l'interface */
 export const LABELS_ROLES: Record<string, string> = {
-  COMMERCIAL:     "Commercial",
-  CHEF_AGENCE:    "Chef d'agence",
-  ANALYSTE:       "Analyste Engagement",
-  DIRECTION:      "Direction",
-  COMITE:         "Comité",
-  ADMINISTRATEUR: "Administrateur",
+  COMMERCIAL:              "Commercial",
+  CHEF_AGENCE_COMMERCIALE: "Chef d'agence commerciale",
+  CHEF_AGENCE_ANALYSE:     "Chef d'agence analyse",
+  ANALYSTE:                "Analyste Engagement",
+  DIRECTION:               "Direction",
+  COMITE:                  "Comité",
+  ADMINISTRATEUR:          "Administrateur",
 };
 
 /**

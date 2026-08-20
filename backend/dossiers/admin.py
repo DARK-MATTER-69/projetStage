@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import Client, Dossier, DocumentDossier, ValidationDossier
 from .models import HistoriqueSalaire, ImpayeSCE
+from .models import Notification
 
 
 @admin.register(HistoriqueSalaire)
@@ -42,3 +43,8 @@ class DocumentDossierAdmin(admin.ModelAdmin):
 class ValidationDossierAdmin(admin.ModelAdmin):
     list_display = ['dossier', 'validateur', 'decision', 'date']
     list_filter  = ['decision']
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ['destinataire', 'message', 'lue', 'cree_le']
+    list_filter  = ['lue']
