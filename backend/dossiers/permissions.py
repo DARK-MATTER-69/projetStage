@@ -12,46 +12,6 @@ class EstCommercial(BasePermission):
         )
 
 
-class EstChefAgence(BasePermission):
-    """Autorise uniquement les chefs d'agence."""
-
-    def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and request.user.role == Utilisateur.Role.CHEF_AGENCE
-        )
-
-
-class EstAnalyste(BasePermission):
-    """Autorise uniquement les analystes engagement."""
-
-    def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and request.user.role == Utilisateur.Role.ANALYSTE
-        )
-
-
-class EstDirection(BasePermission):
-    """Autorise uniquement la direction."""
-
-    def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and request.user.role == Utilisateur.Role.DIRECTION
-        )
-
-
-class EstComite(BasePermission):
-    """Autorise uniquement le comité."""
-
-    def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and request.user.role == Utilisateur.Role.COMITE
-        )
-
-
 class PeutValiderDossier(BasePermission):
     """
     Autorise les acteurs du circuit de validation :

@@ -305,7 +305,6 @@ class MoteurScoring:
         eng_bq  = float(dossier.echeance_mens_banque)
 
         lignes.append(
-            f"DOMICILIATION DU SALAIRE : {dossier.releve_banque or 'À PRÉCISER'}. "
             f"SALAIRE : {float(client.salaire_net):,.0f} FRS. "
             f"ENG BQ : {eng_bq:,.0f} FRS. "
             f"QUOTITE RELATIVE : {float(dossier.quotite_relative):.2f}%. "

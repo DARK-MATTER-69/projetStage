@@ -45,13 +45,13 @@ class Command(BaseCommand):
         pour pouvoir tester le workflow de validation complet.
         """
         equipe = [
-            ('commercial_test',  'Wansi',   'Brayann',  Utilisateur.Role.COMMERCIAL),
-            ('chef_test',        'Kaleuck',   'Sonya',    Utilisateur.Role.CHEF_AGENCE_COMMERCIALE),
-            ('chef_test',        'Kamdem',   'Rudy',    Utilisateur.Role.CHEF_AGENCE_ANALYSE),
-            ('analyste1_test',   'Siani',    'Ludivick',   Utilisateur.Role.ANALYSTE),
-            ('analyste2_test',   'Tchamni',   'Darlene',    Utilisateur.Role.ANALYSTE),
-            ('direction_test',   'Nintcheu',    'Delva',   Utilisateur.Role.DIRECTION),
-            ('comite_test',      'Ange',   'Douce',  Utilisateur.Role.COMITE),
+            ('commercial_test',    'Wansi',    'Brayann',  Utilisateur.Role.COMMERCIAL),
+            ('chef_com_test',      'Kaleuck',  'Sonya',    Utilisateur.Role.CHEF_AGENCE_COMMERCIALE),
+            ('chef_analyse_test',  'Kamdem',   'Rudy',     Utilisateur.Role.CHEF_AGENCE_ANALYSE),
+            ('analyste1_test',     'Siani',    'Ludivick', Utilisateur.Role.ANALYSTE),
+            ('analyste2_test',     'Tchamni',  'Darlene',  Utilisateur.Role.ANALYSTE),
+            ('direction_test',     'Nintcheu', 'Delva',    Utilisateur.Role.DIRECTION),
+            ('comite_test',        'Ange',     'Douce',    Utilisateur.Role.COMITE),
         ]
 
         for username, prenom, nom, role in equipe:
@@ -112,10 +112,10 @@ class Command(BaseCommand):
         # Statuts finaux possibles pour qu'un dossier compte pour l'entraînement ML
         # (BROUILLON est exclu par charger_donnees())
         statuts_en_cours = [
-            Dossier.Statut.SOUMIS, Dossier.Statut.VALIDE_CHEF_1,
+            Dossier.Statut.SOUMIS, Dossier.Statut.VALIDE_CHEF_COMMERCIAL,
             Dossier.Statut.EN_ANALYSE_1, Dossier.Statut.EN_ANALYSE_2,
-            Dossier.Statut.ANALYSE_TERMINEE, Dossier.Statut.EN_DECISION,
-            Dossier.Statut.EN_COMITE,
+            Dossier.Statut.ANALYSE_TERMINEE,Dossier.Statut.VALIDE_CHEF_ANALYSTE,
+            Dossier.Statut.EN_DECISION, Dossier.Statut.EN_COMITE,
         ]
 
         compteur_clients  = 0

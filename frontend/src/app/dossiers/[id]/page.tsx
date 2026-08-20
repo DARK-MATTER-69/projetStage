@@ -6,6 +6,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { dossiersService } from "@/services/dossiersService";
 import { EtatChargement, EtatErreur } from "@/components/ui/EtatChargement";
 import JaugeScore from "@/components/ui/JaugeScore";
+import { useAuthStore } from "@/store/authStore";
 
 // Garder toutes les interfaces et composants Info, Section du fichier existant
 // Remplacer uniquement la fonction principale
@@ -100,12 +101,25 @@ export default function DetailDossierPage() {
             </svg>
             Retour
           </button>
-          <a>
-            href={`http://127.0.0.1:8000/api/rapports/${id}/`}
-            target="_blank"
+          <button
+            onClick={async () => {
+              const token = useAuthStore.getState().accessToken;
+              const reponse = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/rapports/${id}/`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              const blob = await reponse.blob();
+              const url  = window.URL.createObjectURL(blob);
+              const lien = document.createElement("a");
+              lien.href = url;
+              lien.download = `dossier-${id}.pdf`;
+              lien.click();
+              window.URL.revokeObjectURL(url);
+            }}
             className="h-9 px-4 flex items-center gap-2 text-sm border
                        border-gray-200 rounded-lg text-gray-600
                        hover:bg-gray-50 transition-colors"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
               viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +128,7 @@ export default function DetailDossierPage() {
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             Télécharger PDF
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
