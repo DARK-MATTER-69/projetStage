@@ -161,9 +161,6 @@ CORS_ALLOWED_ORIGINS = config(
     default='http://localhost:3000'
 ).split(',')
 
-# Gemini API
-GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

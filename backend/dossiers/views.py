@@ -256,14 +256,14 @@ def valider_dossier(request, pk):
         elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
             dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
 
-        elif user.est_chef_agence_analyse:
-            if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-                dossier.statut = Dossier.Statut.VALIDE_CHEF_2
-                dossier.save()
-                if dossier.necessite_comite:
-                    dossier.statut = Dossier.Statut.EN_COMITE
-                else:
-                    dossier.statut = Dossier.Statut.EN_DECISION
+    elif user.est_chef_agence_analyse:
+        if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
+            dossier.statut = Dossier.Statut.VALIDE_CHEF_2
+            dossier.save()
+            if dossier.necessite_comite:
+                dossier.statut = Dossier.Statut.EN_COMITE
+            else:
+                dossier.statut = Dossier.Statut.EN_DECISION
 
     elif user.est_direction:
         dossier.statut = Dossier.Statut.APPROUVE
