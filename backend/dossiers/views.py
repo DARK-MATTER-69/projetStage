@@ -240,9 +240,9 @@ def valider_dossier(request, pk):
                     {'detail': 'Vous devez assigner un analyste.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            dossier.statut = Dossier.Statut.VALIDE_CHEF_1
+            dossier.statut = Dossier.Statut.VALIDE_CHEF_COMMERCIAL   
             dossier.save()
-            dossier.statut = Dossier.Statut.EN_ANALYSE_1
+            dossier.statut = Dossier.Statut.EN_ANALYSE_1   
 
     elif user.est_analyste:
         if dossier.statut == Dossier.Statut.EN_ANALYSE_1:
@@ -253,12 +253,12 @@ def valider_dossier(request, pk):
                 )
             dossier.statut = Dossier.Statut.EN_ANALYSE_2
 
-        elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
-            dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
+    elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
+        dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
 
     elif user.est_chef_agence_analyse:
         if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-            dossier.statut = Dossier.Statut.VALIDE_CHEF_2
+            dossier.statut = Dossier.Statut.VALIDE_CHEF_ANALYSTE   
             dossier.save()
             if dossier.necessite_comite:
                 dossier.statut = Dossier.Statut.EN_COMITE
@@ -279,6 +279,7 @@ def valider_dossier(request, pk):
     elif dossier.statut == Dossier.Statut.REJETE:
         _notifier(dossier, f'Dossier #{dossier.id} rejeté.')
 
+    dossier.save()
     return Response({'detail': 'Décision enregistrée avec succès.'})
 
 

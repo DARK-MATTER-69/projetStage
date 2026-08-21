@@ -119,11 +119,11 @@ class Dossier(models.Model):
         DOCUMENTS_INCOMPLETS = 'DOCUMENTS_INCOMPLETS', 'Documents incomplets'
         PRET_A_SOUMETTRE = 'PRET_A_SOUMETTRE', 'Prêt à soumettre'
         SOUMIS           = 'SOUMIS',           'Soumis au chef d\'agence'
-        VALIDE_CHEF_1    = 'VALIDE_CHEF_1',    'Validé chef d\'agence (1ère signature)'
-        EN_ANALYSE_1     = 'EN_ANALYSE_1',     'En cours d\'analyse (Analyste 1)'
-        EN_ANALYSE_2     = 'EN_ANALYSE_2',     'En cours d\'analyse (Analyste 2)'
-        ANALYSE_TERMINEE = 'ANALYSE_TERMINEE', 'Analyses terminées'
-        VALIDE_CHEF_2    = 'VALIDE_CHEF_2',    'Validé chef d\'agence (2ème signature)'
+        VALIDE_CHEF_COMMERCIAL = 'VALIDE_CHEF_COMMERCIAL', "Validé chef d'agence commerciale"
+        EN_ANALYSE_1           = 'EN_ANALYSE_1',           'En cours d\'analyse (Analyste 1)'
+        EN_ANALYSE_2           = 'EN_ANALYSE_2',           'En cours d\'analyse (Analyste 2)'
+        ANALYSE_TERMINEE       = 'ANALYSE_TERMINEE',       'Analyses terminées'
+        VALIDE_CHEF_ANALYSTE   = 'VALIDE_CHEF_ANALYSTE',   "Validé chef d'agence analyse"
         EN_DECISION      = 'EN_DECISION',      'En attente de décision direction'
         EN_COMITE        = 'EN_COMITE',        'En attente du comité'
         APPROUVE         = 'APPROUVE',         'Approuvé'

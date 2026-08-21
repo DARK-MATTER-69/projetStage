@@ -10,11 +10,11 @@ type Statut =
   | "BROUILLON"
   | "PRET_A_SOUMETTRE"
   | "SOUMIS"
-  | "VALIDE_CHEF_1"
+  | "VALIDE_CHEF_COMMERCIAL"
   | "EN_ANALYSE_1"
   | "EN_ANALYSE_2"
   | "ANALYSE_TERMINEE"
-  | "VALIDE_CHEF_2"
+  | "VALIDE_CHEF_ANALYSTE"
   | "EN_DECISION"
   | "EN_COMITE"
   | "APPROUVE"
@@ -38,11 +38,11 @@ const STATUTS: Record<Statut, string> = {
   BROUILLON:         "bg-gray-100 text-gray-500",
   PRET_A_SOUMETTRE:  "bg-gray-100 text-gray-600",
   SOUMIS:            "bg-blue-50 text-blue-600",
-  VALIDE_CHEF_1:     "bg-indigo-50 text-indigo-600",
+  VALIDE_CHEF_COMMERCIAL:     "bg-indigo-50 text-indigo-600",
   EN_ANALYSE_1:      "bg-orange-50 text-orange-600",
   EN_ANALYSE_2:      "bg-orange-50 text-orange-700",
   ANALYSE_TERMINEE:  "bg-yellow-50 text-yellow-700",
-  VALIDE_CHEF_2:     "bg-indigo-50 text-indigo-700",
+  VALIDE_CHEF_ANALYSTE:     "bg-indigo-50 text-indigo-700",
   EN_DECISION:       "bg-purple-50 text-purple-600",
   EN_COMITE:         "bg-pink-50 text-pink-600",
   APPROUVE:          "bg-green-50 text-green-600",

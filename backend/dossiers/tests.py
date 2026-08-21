@@ -393,6 +393,7 @@ class TestNouveauPret(BaseCircuitTestCase):
     def test_nouveau_pret_ne_duplique_pas_le_client(self):
         nb_clients_avant = Client.objects.count()
 
+        dossier1 = self._creer_dossier(montant='500000')
         dossier2 = Dossier.objects.create(
             client=self.client_sce, commercial=self.commercial,
             type_credit='CONSOMMATION', montant_sollicite=Decimal('300000'),
@@ -403,7 +404,6 @@ class TestNouveauPret(BaseCircuitTestCase):
         self.assertEqual(
             Client.objects.get(numero_cni='CNI00000001').dossiers.count(), 2
         )
-
 
 class TestScoringMoteur(BaseCircuitTestCase):
     """Vérifie que le moteur de scoring produit un résultat cohérent."""
