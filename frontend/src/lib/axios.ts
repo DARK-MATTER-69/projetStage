@@ -24,11 +24,32 @@ api.interceptors.request.use((config) => {
  */
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      useAuthStore.getState().deconnexion();
-      window.location.href = "/login";
+  async (error) => {
+    const requeteOriginale = error.config;
+
+    if (error.response?.status === 401 && !requeteOriginale._retry) {
+      requeteOriginale._retry = true;
+      const refreshToken = useAuthStore.getState().refreshToken;
+
+      if (refreshToken) {
+        try {
+          const { data } = await axios.post(
+            `${api.defaults.baseURL}/api/auth/token/refresh/`,
+            { refresh: refreshToken }
+          );
+          useAuthStore.getState().mettreAJourAccessToken(data.access);
+          requeteOriginale.headers.Authorization = `Bearer ${data.access}`;
+          return api(requeteOriginale);
+        } catch {
+          useAuthStore.getState().deconnexion();
+          window.location.href = "/login";
+        }
+      } else {
+        useAuthStore.getState().deconnexion();
+        window.location.href = "/login";
+      }
     }
+
     return Promise.reject(error);
   }
 );

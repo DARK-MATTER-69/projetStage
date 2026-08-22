@@ -72,16 +72,16 @@ export default function ClientsPage() {
               className="w-full h-9 border border-gray-200 rounded-lg
                          pl-9 pr-4 text-sm text-gray-700
                          placeholder:text-gray-400
-                         focus:outline-none focus:border-[#922b00]
-                         focus:ring-2 focus:ring-[#922b00]/10"
+                         focus:outline-none focus:border-[var(--color-brand)]
+                         focus:ring-2 focus:ring-[var(--color-brand)]/10"
             />
           </div>
 
           <Link
             href="/dossiers/nouveau"
             className="h-9 px-4 flex items-center gap-2 rounded-lg text-sm
-                       font-medium border border-[#922b00] text-[#922b00]
-                       hover:bg-[#922b00] hover:text-white transition-all"
+                       font-medium border border-[var(--color-brand)] text-[var(--color-brand)]
+                       hover:bg-[var(--color-brand)] hover:text-white transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15"
               viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -152,7 +152,7 @@ export default function ClientsPage() {
                         <Link
                           href={`/clients/${c.id}`}
                           className="text-xs hover:underline transition-colors"
-                          style={{ color: "#922b00" }}
+                          style={{ color: "var(--color-brand)" }}
                         >
                           Voir →
                         </Link>

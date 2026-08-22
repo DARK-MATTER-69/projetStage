@@ -99,8 +99,8 @@ function FormulaireSalaire({
         onClick={() => setOuvert(true)}
         className="text-xs font-medium px-3 py-1.5 border rounded-lg
                    transition-all hover:text-white"
-        style={{ borderColor: "#922b00", color: "#922b00" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#922b00")}
+        style={{ borderColor: "var(--color-brand)", color: "var(--color-brand)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-brand)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
         + Nouveau salaire
@@ -120,7 +120,7 @@ function FormulaireSalaire({
             onChange={(e) => setSalaire(e.target.value)}
             placeholder="0"
             className="w-full h-9 border border-gray-200 rounded-lg px-3 text-sm
-                       focus:outline-none focus:border-[#922b00]" />
+                       focus:outline-none focus:border-[var(--color-brand)]" />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-gray-400
@@ -130,7 +130,7 @@ function FormulaireSalaire({
           <input type="date" value={dateEffet}
             onChange={(e) => setDateEffet(e.target.value)}
             className="w-full h-9 border border-gray-200 rounded-lg px-3 text-sm
-                       focus:outline-none focus:border-[#922b00]" />
+                       focus:outline-none focus:border-[var(--color-brand)]" />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-gray-400
@@ -141,7 +141,7 @@ function FormulaireSalaire({
             onChange={(e) => setNote(e.target.value)}
             placeholder="Ex : Promotion"
             className="w-full h-9 border border-gray-200 rounded-lg px-3 text-sm
-                       focus:outline-none focus:border-[#922b00]" />
+                       focus:outline-none focus:border-[var(--color-brand)]" />
         </div>
       </div>
 
@@ -153,7 +153,7 @@ function FormulaireSalaire({
           disabled={chargement}
           className="h-8 px-3 rounded-lg text-xs font-medium text-white
                      disabled:opacity-50"
-          style={{ background: "#922b00" }}
+          style={{ background: "var(--color-brand)" }}
         >
           {chargement ? "Enregistrement..." : "Enregistrer et recalculer"}
         </button>
@@ -419,7 +419,7 @@ export default function DetailClientPage() {
                     <Link
                       href={`/dossiers/${d.id}`}
                       className="text-xs hover:underline"
-                      style={{ color: "#922b00" }}
+                      style={{ color: "var(--color-brand)" }}
                     >
                       Voir →
                     </Link>

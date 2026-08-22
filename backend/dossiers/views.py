@@ -377,6 +377,20 @@ def historique_salaires(request, client_pk):
     """
     from .models import HistoriqueSalaire, Client
 
+    if request.method == 'GET':
+        historiques = HistoriqueSalaire.objects.filter(client=client).order_by('-date_effet')
+        data = [
+            {
+                'id':              h.id,
+                'salaire':         h.salaire,
+                'date_effet':      h.date_effet,
+                'note':            h.note,
+                'enregistre_par':  h.enregistre_par.get_full_name() if h.enregistre_par else None,
+            }
+            for h in historiques
+        ]
+        return Response(data)
+    
     client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == 'POST' and not request.user.est_commercial:

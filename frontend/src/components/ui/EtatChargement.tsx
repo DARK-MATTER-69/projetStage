@@ -10,7 +10,7 @@ export function EtatChargement({ message = "Chargement..." }: EtatChargementProp
     <div className="flex items-center justify-center py-20">
       <div className="flex flex-col items-center gap-3">
         <div className="w-6 h-6 border-2 rounded-full animate-spin"
-          style={{ borderColor: "#922b00", borderTopColor: "transparent" }} />
+          style={{ borderColor: "var(--color-brand)", borderTopColor: "transparent" }} />
         <p className="text-sm text-gray-400">{message}</p>
       </div>
     </div>

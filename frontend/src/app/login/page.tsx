@@ -47,24 +47,24 @@ export default function LoginPage() {
 
         {/* En-tête */}
         <div className="bg-white border-b border-gray-100 px-8 py-7">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
 
             {/* Logo */}
-            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center">
+            <div className="w-30 h-20 flex-shrink-0 flex items-center justify-center overflow-hidden">
               <Image
                 src="/logo-sce.png"
                 alt="Logo SCE"
-                width={56}
-                height={56}
+                width={260}
+                height={280}
                 priority
-                className="object-contain"
+                className="w-full h-full object-contain"
               />
             </div>
 
             {/* Nom entreprise */}
             <div>
               <h1 className="font-serif text-[17px] font-medium leading-snug tracking-wide"
-                  style={{ color: "#922b00" }}>
+                  style={{ color: "var(--color-brand)" }}>
                 Société Camerounaise<br />d&apos;Équipements
               </h1>
               <p className="text-[11px] text-gray-400 uppercase tracking-widest mt-1">
@@ -106,8 +106,8 @@ export default function LoginPage() {
                   className="w-full h-[42px] border border-gray-300 rounded-md
                              pl-[42px] pr-4 text-sm text-gray-800
                              placeholder:text-gray-400
-                             focus:outline-none focus:border-[#922b00]
-                             focus:ring-2 focus:ring-[#922b00]/10
+                             focus:outline-none focus:border-[var(--color-brand)]
+                             focus:ring-2 focus:ring-[var(--color-brand)]/10
                              disabled:bg-gray-50 transition-colors"
                 />
               </div>
@@ -140,8 +140,8 @@ export default function LoginPage() {
                   className="w-full h-[42px] border border-gray-300 rounded-md
                              pl-[42px] pr-10 text-sm text-gray-800
                              placeholder:text-gray-400
-                             focus:outline-none focus:border-[#922b00]
-                             focus:ring-2 focus:ring-[#922b00]/10
+                             focus:outline-none focus:border-[var(--color-brand)]
+                             focus:ring-2 focus:ring-[var(--color-brand)]/10
                              disabled:bg-gray-50 transition-colors"
                 />
                 {/* Bouton afficher/masquer mot de passe */}
@@ -149,7 +149,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setAfficherPassword(!afficherPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2
-                             text-gray-400 hover:text-[#922b00]
+                             text-gray-400 hover:text-[var(--color-brand)]
                              transition-colors bg-transparent border-none outline-none"
                   aria-label={afficherPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                 >
@@ -182,9 +182,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={chargement}
-              className="w-full h-[42px] border border-[#922b00] text-[#922b00]
+              className="w-full h-[42px] border border-[var(--color-brand)] text-[var(--color-brand)]
                          bg-white rounded-md text-sm font-medium
-                         hover:bg-[#922b00] hover:text-white
+                         hover:bg-[var(--color-brand)] hover:text-white
                          disabled:opacity-50 disabled:cursor-not-allowed
                          transition-all flex items-center justify-center gap-2"
               style={{ marginTop: "1.25rem" }}
@@ -200,7 +200,7 @@ export default function LoginPage() {
           </form>
 
           {/* Mot de passe oublié */}
-          <p className="text-center text-xs text-gray-400 hover:text-[#922b00]
+          <p className="text-center text-xs text-gray-400 hover:text-[var(--color-brand)]
                         cursor-pointer transition-colors mt-4">
             Mot de passe oublié ?
           </p>

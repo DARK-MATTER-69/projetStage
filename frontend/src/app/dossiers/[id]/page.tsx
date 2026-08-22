@@ -189,7 +189,7 @@ export default function DetailDossierPage() {
                       <div className="w-8 h-8 rounded-full flex items-center
                                       justify-center bg-white border border-gray-100
                                       shrink-0 text-xs font-semibold"
-                        style={{ color: "#922b00" }}>
+                        style={{ color: "var(--color-brand)" }}>
                         {v.validateur[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -272,7 +272,7 @@ export default function DetailDossierPage() {
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-full rounded-full"
-                            style={{ width: `${(val / max) * 100}%`, background: "#922b00" }} />
+                            style={{ width: `${(val / max) * 100}%`, background: "var(--color-brand)" }} />
                         </div>
                       </div>
                     ))}

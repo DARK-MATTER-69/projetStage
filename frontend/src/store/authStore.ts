@@ -25,6 +25,7 @@ interface AuthStore {
   estConnecte:    boolean;
   connexion:      (access: string, refresh: string, utilisateur: Utilisateur) => void;
   deconnexion:    () => void;
+  mettreAJourAccessToken: (access: string) => void;
   setUtilisateur: (utilisateur: Utilisateur) => void;
   tokenEstValide: () => boolean;
 }
@@ -72,6 +73,11 @@ export const useAuthStore = create<AuthStore>()(
           utilisateur:  null,
           estConnecte:  false,
         });
+      },
+
+      mettreAJourAccessToken: (access) => {
+        setCookie("access_token", access, 1);
+        set({ accessToken: access });
       },
 
       setUtilisateur: (utilisateur) => set({ utilisateur }),

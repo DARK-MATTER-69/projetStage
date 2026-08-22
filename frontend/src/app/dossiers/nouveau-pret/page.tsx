@@ -27,13 +27,13 @@ interface DonneesPret {
 
 const inputClass = `w-full h-10 border border-gray-200 rounded-lg px-3 text-sm
                     text-gray-700 placeholder:text-gray-400 bg-white
-                    focus:outline-none focus:border-[#922b00]
-                    focus:ring-2 focus:ring-[#922b00]/10`;
+                    focus:outline-none focus:border-[var(--color-brand)]
+                    focus:ring-2 focus:ring-[var(--color-brand)]/10`;
 
 const selectClass = `w-full h-10 border border-gray-200 rounded-lg px-3 text-sm
                      text-gray-700 bg-white
-                     focus:outline-none focus:border-[#922b00]
-                     focus:ring-2 focus:ring-[#922b00]/10`;
+                     focus:outline-none focus:border-[var(--color-brand)]
+                     focus:ring-2 focus:ring-[var(--color-brand)]/10`;
 
 function Champ({
   label,
@@ -217,7 +217,7 @@ export default function NouveauPretPage() {
                   disabled={recherche || !cni.trim()}
                   className="h-10 px-5 rounded-lg text-sm font-medium text-white
                              disabled:opacity-50 flex-shrink-0"
-                  style={{ background: "#922b00" }}
+                  style={{ background: "var(--color-brand)" }}
                 >
                   {recherche ? "Recherche..." : "Rechercher"}
                 </button>
@@ -245,7 +245,7 @@ export default function NouveauPretPage() {
                     onClick={() => selectionnerClient(c)}
                     className="w-full flex items-center justify-between p-3
                                border border-gray-100 rounded-lg text-left
-                               hover:border-[#922b00]/40 transition-colors"
+                               hover:border-[var(--color-brand)]/40 transition-colors"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-800">
@@ -398,8 +398,8 @@ export default function NouveauPretPage() {
                   placeholder="Observations sur cette nouvelle demande..."
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5
                              text-sm text-gray-700 placeholder:text-gray-400
-                             focus:outline-none focus:border-[#922b00]
-                             focus:ring-2 focus:ring-[#922b00]/10 resize-none"
+                             focus:outline-none focus:border-[var(--color-brand)]
+                             focus:ring-2 focus:ring-[var(--color-brand)]/10 resize-none"
                 />
               </Champ>
 
@@ -407,13 +407,13 @@ export default function NouveauPretPage() {
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={pret.avi}
                     onChange={(e) => majPret("avi", e.target.checked)}
-                    className="w-4 h-4 accent-[#922b00]" />
+                    className="w-4 h-4 accent-[var(--color-brand)]" />
                   AVI
                 </label>
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={pret.delegation_salaire}
                     onChange={(e) => majPret("delegation_salaire", e.target.checked)}
-                    className="w-4 h-4 accent-[#922b00]" />
+                    className="w-4 h-4 accent-[var(--color-brand)]" />
                   Délégation de salaire
                 </label>
               </div>
@@ -475,7 +475,7 @@ export default function NouveauPretPage() {
                 disabled={chargement}
                 className="w-full h-10 rounded-lg text-sm font-medium text-white
                            disabled:opacity-50"
-                style={{ background: "#922b00" }}
+                style={{ background: "var(--color-brand)" }}
               >
                 {chargement ? "Soumission en cours..." : "Soumettre la demande"}
               </button>
@@ -494,7 +494,7 @@ export default function NouveauPretPage() {
             <button
               onClick={() => router.push(`/dossiers/${resultat.dossierId}`)}
               className="h-10 px-5 rounded-lg text-sm font-medium text-white"
-              style={{ background: "#922b00" }}
+              style={{ background: "var(--color-brand)" }}
             >
               Voir le dossier complet
             </button>

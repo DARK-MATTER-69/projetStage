@@ -62,7 +62,7 @@ export default function AnalysePage() {
           <div className="p-2 rounded-lg"
             style={{ background: "rgba(146,43,0,0.08)" }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-              viewBox="0 0 24 24" fill="none" stroke="#922b00"
+              viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)"
               strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="8" x2="12" y2="12"/>
@@ -189,7 +189,7 @@ export default function AnalysePage() {
                       className="h-9 px-4 flex items-center gap-2 rounded-lg
                                  text-sm font-medium text-white transition-all
                                  hover:opacity-90"
-                      style={{ background: "#922b00" }}
+                      style={{ background: "var(--color-brand)" }}
                     >
                       Analyser
                       <svg xmlns="http://www.w3.org/2000/svg" width="14"

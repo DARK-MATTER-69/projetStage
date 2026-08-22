@@ -75,13 +75,13 @@ function Champ({
 
 const inputClass = `w-full h-10 border border-gray-200 rounded-lg px-3 text-sm
                     text-gray-700 placeholder:text-gray-400 bg-white
-                    focus:outline-none focus:border-[#922b00]
-                    focus:ring-2 focus:ring-[#922b00]/10`;
+                    focus:outline-none focus:border-[var(--color-brand)]
+                    focus:ring-2 focus:ring-[var(--color-brand)]/10`;
 
 const selectClass = `w-full h-10 border border-gray-200 rounded-lg px-3 text-sm
                      text-gray-700 bg-white
-                     focus:outline-none focus:border-[#922b00]
-                     focus:ring-2 focus:ring-[#922b00]/10`;
+                     focus:outline-none focus:border-[var(--color-brand)]
+                     focus:ring-2 focus:ring-[var(--color-brand)]/10`;
 
 export default function NouveauDossierPage() {
   const router          = useRouter();
@@ -253,7 +253,7 @@ export default function NouveauDossierPage() {
                                    }`}
                     style={
                       etape === e.num || etape > e.num
-                        ? { background: "#922b00" }
+                        ? { background: "var(--color-brand)" }
                         : {}
                     }
                   >
@@ -273,7 +273,7 @@ export default function NouveauDossierPage() {
                   </div>
                 </button>
                 {i < ETAPES.length - 1 && (
-                  <div className={`flex-1 h-px mx-4 ${etape > e.num ? "bg-[#922b00]" : "bg-gray-100"}`} />
+                  <div className={`flex-1 h-px mx-4 ${etape > e.num ? "bg-[var(--color-brand)]" : "bg-gray-100"}`} />
                 )}
               </div>
             ))}
@@ -500,8 +500,8 @@ export default function NouveauDossierPage() {
                   placeholder="Observations sur le client et le dossier..."
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5
                              text-sm text-gray-700 placeholder:text-gray-400
-                             focus:outline-none focus:border-[#922b00]
-                             focus:ring-2 focus:ring-[#922b00]/10 resize-none"
+                             focus:outline-none focus:border-[var(--color-brand)]
+                             focus:ring-2 focus:ring-[var(--color-brand)]/10 resize-none"
                 />
               </Champ>
             </div>
@@ -543,13 +543,13 @@ export default function NouveauDossierPage() {
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={dossier.avi}
                     onChange={(e) => majDossier("avi", e.target.checked)}
-                    className="w-4 h-4 accent-[#922b00]" />
+                    className="w-4 h-4 accent-[var(--color-brand)]" />
                   AVI
                 </label>
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={dossier.delegation_salaire}
                     onChange={(e) => majDossier("delegation_salaire", e.target.checked)}
-                    className="w-4 h-4 accent-[#922b00]" />
+                    className="w-4 h-4 accent-[var(--color-brand)]" />
                   Délégation de salaire
                 </label>
               </div>
@@ -621,7 +621,7 @@ export default function NouveauDossierPage() {
             ].map(({ key, label, required }) => (
               <div key={key}
                 className="flex items-center justify-between p-4 border border-gray-100
-                           rounded-lg hover:border-[#922b00]/30 transition-colors">
+                           rounded-lg hover:border-[var(--color-brand)]/30 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center
                                    ${documents[key] ? "bg-green-50" : "bg-gray-50"}`}>
@@ -652,8 +652,8 @@ export default function NouveauDossierPage() {
                 </div>
 
                 <label className="cursor-pointer text-xs font-medium px-3 py-1.5
-                                   border border-[#922b00] text-[#922b00] rounded-lg
-                                   hover:bg-[#922b00] hover:text-white transition-all">
+                                   border border-[var(--color-brand)] text-[var(--color-brand)] rounded-lg
+                                   hover:bg-[var(--color-brand)] hover:text-white transition-all">
                   {documents[key] ? "Remplacer" : "Choisir"}
                   <input
                     type="file"
@@ -694,7 +694,7 @@ export default function NouveauDossierPage() {
               onClick={() => setEtape((prev) => (prev + 1) as Etape)}
               className="h-10 px-5 rounded-lg text-sm font-medium text-white
                          transition-all"
-              style={{ background: "#922b00" }}
+              style={{ background: "var(--color-brand)" }}
             >
               Suivant →
             </button>
@@ -704,7 +704,7 @@ export default function NouveauDossierPage() {
               disabled={chargement}
               className="h-10 px-5 rounded-lg text-sm font-medium text-white
                          disabled:opacity-50 transition-all flex items-center gap-2"
-              style={{ background: "#922b00" }}
+              style={{ background: "var(--color-brand)" }}
             >
               {chargement ? "Soumission..." : "Soumettre le dossier"}
             </button>

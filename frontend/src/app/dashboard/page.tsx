@@ -67,7 +67,7 @@ function CarteStats({
           <p className="text-xs text-gray-400 mt-1">{description}</p>
         </div>
         <div className="p-2 rounded-lg" style={{ background: "rgba(146,43,0,0.08)" }}>
-          <span style={{ color: "#922b00" }}>{icon}</span>
+          <span style={{ color: "var(--color-brand)" }}>{icon}</span>
         </div>
       </div>
     </div>
@@ -84,7 +84,7 @@ export default function DashboardPage() {
     const charger = async () => {
       try {
         const [statsRes, dossiersRes, scoringRes] = await Promise.all([
-          api.get("/api/dashboard/stats/"),
+          api.get("/api/dossiers/dashboard/stats/"),
           api.get("/api/dossiers/?page_size=5"),
           api.get("/api/scoring/repartition/"),
         ]);
@@ -204,7 +204,7 @@ export default function DashboardPage() {
               <Link
                 href="/dossiers"
                 className="text-xs hover:underline"
-                style={{ color: "#922b00" }}
+                style={{ color: "var(--color-brand)" }}
               >
                 Voir tout →
               </Link>

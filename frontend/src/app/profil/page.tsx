@@ -48,8 +48,8 @@ export default function ProfilPage() {
 
   const inputClass = `w-full h-10 border border-gray-200 rounded-lg px-3
                       text-sm text-gray-700 placeholder:text-gray-400 bg-white
-                      focus:outline-none focus:border-[#922b00]
-                      focus:ring-2 focus:ring-[#922b00]/10`;
+                      focus:outline-none focus:border-[var(--color-brand)]
+                      focus:ring-2 focus:ring-[var(--color-brand)]/10`;
 
   return (
     <MainLayout titre="Mon profil">
@@ -62,7 +62,7 @@ export default function ProfilPage() {
             {/* Avatar */}
             <div className="w-16 h-16 rounded-full flex items-center justify-center
                             text-2xl font-bold shrink-0"
-              style={{ background: "rgba(146,43,0,0.1)", color: "#922b00" }}>
+              style={{ background: "rgba(146,43,0,0.1)", color: "var(--color-brand)" }}>
               {utilisateur?.first_name?.[0]?.toUpperCase() || "U"}
             </div>
 
@@ -78,7 +78,7 @@ export default function ProfilPage() {
                            rounded-full"
                 style={{
                   background: "rgba(146,43,0,0.08)",
-                  color:      "#922b00",
+                  color:      "var(--color-brand)",
                 }}
               >
                 {LABELS_ROLES[utilisateur?.role || ""] || utilisateur?.role}
@@ -185,7 +185,7 @@ export default function ProfilPage() {
               <Link
                 href="/profil/changer-mot-de-passe"
                 className="text-xs hover:underline transition-colors"
-                style={{ color: "#922b00" }}
+                style={{ color: "var(--color-brand)" }}
               >
                 Changer mon mot de passe →
               </Link>
@@ -195,7 +195,7 @@ export default function ProfilPage() {
                 disabled={chargement}
                 className="h-10 px-5 rounded-lg text-sm font-medium
                            text-white disabled:opacity-50 transition-all"
-                style={{ background: "#922b00" }}
+                style={{ background: "var(--color-brand)" }}
               >
                 {chargement ? "Enregistrement..." : "Sauvegarder"}
               </button>

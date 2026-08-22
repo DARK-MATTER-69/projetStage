@@ -79,18 +79,18 @@ export default function Sidebar() {
       {/* Logo + nom */}
       <div className="px-5 py-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex-shrink-0">
+          <div className="w-9 h-9 flex-shrink-0 overflow-hidden">
             <Image
               src="/logo-sce.png"
               alt="Logo SCE"
-              width={36}
-              height={36}
-              className="object-contain"
+              width={144}
+              height={144}
+              className="w-full h-full object-fill"
             />
           </div>
           <div>
             <p className="text-[13px] font-semibold leading-tight"
-               style={{ color: "#922b00" }}>
+               style={{ color: "var(--color-brand)" }}>
               SCE
             </p>
             <p className="text-[10px] text-gray-400 leading-tight">
@@ -113,11 +113,11 @@ export default function Sidebar() {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm
                           transition-colors
                           ${actif
-                            ? "bg-[#922b00]/8 text-[#922b00] font-medium"
+                            ? "bg-[var(--color-brand)]/8 text-[var(--color-brand)] font-medium"
                             : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                           }`}
             >
-              <span className={actif ? "text-[#922b00]" : "text-gray-400"}>
+              <span className={actif ? "text-[var(--color-brand)]" : "text-gray-400"}>
                 {item.icon}
               </span>
               {item.label}
@@ -131,12 +131,12 @@ export default function Sidebar() {
 
         {/* Infos utilisateur */}
         <Link href="/profil" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-full bg-[#922b00]/10 flex items-center
-                          justify-center text-[#922b00] text-sm font-semibold flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[var(--color-brand)]/10 flex items-center
+                          justify-center text-[var(--color-brand)] text-sm font-semibold flex-shrink-0">
             {utilisateur?.first_name?.[0]?.toUpperCase() || "U"}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-800 truncate group-hover:text-[#922b00] transition-colors">
+            <p className="text-xs font-medium text-gray-800 truncate group-hover:text-[var(--color-brand)] transition-colors">
               {utilisateur?.first_name} {utilisateur?.last_name}
             </p>
             <p className="text-[10px] text-gray-400 truncate">
