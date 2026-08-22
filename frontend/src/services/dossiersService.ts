@@ -85,4 +85,11 @@ export const dossiersService = {
     );
     return data;
   },
+
+    /**
+   * Supprime un dossier en brouillon.
+   */
+  supprimer: async (id: number) => {
+    await api.delete(`/api/dossiers/${id}/supprimer/`);
+  },
 };

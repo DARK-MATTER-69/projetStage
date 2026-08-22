@@ -18,7 +18,7 @@ class DocumentDossierSerializer(serializers.ModelSerializer):
             'id', 'type_document', 'type_document_display',
             'fichier', 'nom_fichier', 'uploade_le'
         ]
-        read_only_fields = ['id', 'uploade_le']
+        read_only_fields = ['id', 'uploade_le', 'nom_fichier']
 
 
 class ClientSerializer(serializers.ModelSerializer):

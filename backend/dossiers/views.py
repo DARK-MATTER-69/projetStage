@@ -601,3 +601,23 @@ def marquer_notification_lue(request, pk):
     notif.lue = True
     notif.save()
     return Response({'detail': 'Notification marquée comme lue.'})
+
+@api_view(['DELETE'])
+@permission_classes([EstCommercial])
+def supprimer_dossier(request, pk):
+    """
+    Supprime un dossier encore en brouillon — réservé au commercial
+    propriétaire, uniquement si le dossier n'a pas encore été soumis.
+
+    DELETE /api/dossiers/<id>/
+    """
+    dossier = get_object_or_404(Dossier, pk=pk, commercial=request.user)
+
+    if dossier.statut not in [Dossier.Statut.BROUILLON, Dossier.Statut.DOCUMENTS_INCOMPLETS]:
+        return Response(
+            {'detail': 'Seul un dossier en brouillon peut être supprimé.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    dossier.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

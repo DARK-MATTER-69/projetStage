@@ -129,6 +129,32 @@ export default function DetailDossierPage() {
             </svg>
             Télécharger PDF
           </button>
+
+          {(dossier.statut === "BROUILLON" || dossier.statut === "DOCUMENTS_INCOMPLETS") && (
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  const res = await dossiersService.soumettre(dossier.id);
+                  alert(`Dossier soumis — score : ${res.score}/100`);
+                  router.refresh();
+                }}
+                className="h-9 px-4 rounded-lg text-sm font-medium text-white"
+                style={{ background: "var(--color-brand)" }}
+              >
+                Soumettre à nouveau
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm("Supprimer définitivement ce dossier ?")) return;
+                  await dossiersService.supprimer(dossier.id);
+                  router.push("/dossiers");
+                }}
+                className="h-9 px-4 rounded-lg text-sm border border-red-200 text-red-600 hover:bg-red-50"
+              >
+                Supprimer
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -233,49 +259,13 @@ export default function DetailDossierPage() {
               {score ? (
                 <>
                   <div className="flex flex-col items-center gap-3">
-                    <div className="relative w-28 h-28">
-                      {score && (
-                          <JaugeScore score={score.score} niveauRisque={score.niveau_risque} />
-                      )}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold text-gray-800">
-                          {score.score}
-                        </span>
-                        <span className="text-[10px] text-gray-400">/ 100</span>
-                      </div>
-                    </div>
-
-                    <span className={`text-[11px] font-medium px-2.5 py-1
-                                      rounded-full border
-                                      ${COULEURS_RISQUE[score.niveau_risque]}`}>
-                      {score.niveau_risque_display}
-                    </span>
+                    <JaugeScore score={score.score} niveauRisque={score.niveau_risque} taille={112} />
 
                     <span className={`text-[11px] font-medium px-2.5 py-1
                                       rounded-full border
                                       ${COULEURS_DECISION[score.decision_ia]}`}>
                       {score.decision_ia_display}
                     </span>
-                  </div>
-
-                  <div className="space-y-2.5 border-t border-gray-50 pt-4">
-                    {[
-                      { label: "Stabilité emploi",  val: score.score_stabilite_emploi,       max: 25 },
-                      { label: "Capacité remb.",     val: score.score_capacite_remboursement, max: 25 },
-                      { label: "Profil client",      val: score.score_profil_client,          max: 25 },
-                      { label: "Dossier",            val: score.score_dossier,                max: 25 },
-                    ].map(({ label, val, max }) => (
-                      <div key={label}>
-                        <div className="flex justify-between text-[11px] text-gray-500 mb-1">
-                          <span>{label}</span>
-                          <span className="font-medium">{val}/{max}</span>
-                        </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full"
-                            style={{ width: `${(val / max) * 100}%`, background: "var(--color-brand)" }} />
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </>
               ) : (

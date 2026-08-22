@@ -19,6 +19,7 @@ urlpatterns = [
     path('clients/recherche/',                     views.rechercher_client,            name='rechercher_client'),
     path('notifications/',                         views.mes_notifications,            name='mes_notifications'),
     path('notifications/<int:pk>/lue/',            views.marquer_notification_lue,     name='notification_lue'),
+    path('<int:pk>/supprimer/',                    views.supprimer_dossier,            name='supprimer_dossier'),
 
     # Dashboard
     path('dashboard/stats/',                       views.stats_dashboard,              name='stats_dashboard'),

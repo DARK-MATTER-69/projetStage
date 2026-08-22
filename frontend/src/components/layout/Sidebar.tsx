@@ -78,8 +78,8 @@ export default function Sidebar() {
 
       {/* Logo + nom */}
       <div className="px-5 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex-shrink-0 overflow-hidden">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 flex-shrink-0 overflow-hidden">
             <Image
               src="/logo-sce.png"
               alt="Logo SCE"

@@ -219,12 +219,13 @@ export default function NouveauDossierPage() {
 
   } catch (err: unknown) {
     const error = err as { response?: { data?: Record<string, string[]> } };
+    let message = "Une erreur est survenue. Vérifiez votre connexion.";
     if (error.response?.data) {
       const messages = Object.values(error.response.data).flat();
-      setErreur(messages[0] || "Une erreur est survenue.");
-    } else {
-      setErreur("Une erreur est survenue. Vérifiez votre connexion.");
+      message = messages[0] || message;
     }
+    alert(`${message}\n\nLe dossier a été enregistré en brouillon — retrouve-le sur le tableau de bord pour le compléter ou le soumettre à nouveau.`);
+    router.push("/dashboard");
   } finally {
     setChargement(false);
   }
