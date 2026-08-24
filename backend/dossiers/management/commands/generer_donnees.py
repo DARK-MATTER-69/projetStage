@@ -52,6 +52,7 @@ class Command(BaseCommand):
             ('analyste2_test',     'Tchamni',  'Darlene',  Utilisateur.Role.ANALYSTE),
             ('direction_test',     'Nintcheu', 'Delva',    Utilisateur.Role.DIRECTION),
             ('comite_test',        'Ange',     'Douce',    Utilisateur.Role.COMITE),
+            ('admin_test',         'Fotso',    'Rayan',    Utilisateur.Role.ADMINISTRATEUR),
         ]
 
         for username, prenom, nom, role in equipe:

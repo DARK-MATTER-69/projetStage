@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
+from django.db.models import OuterRef, Subquery
+
 
 from .models import Client, Dossier, DocumentDossier, ValidationDossier, Notification
 from .serializers import (
@@ -31,6 +33,11 @@ class ListeClientsView(generics.ListCreateAPIView):
 
     serializer_class   = ClientSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [EstCommercial()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         """
@@ -48,8 +55,21 @@ class ListeClientsView(generics.ListCreateAPIView):
 
 
 class DetailClientView(generics.RetrieveUpdateAPIView):
-    queryset           = Client.objects.all()
+    """
+    Détail et modification d'un client.
+
+    GET /api/dossiers/clients/<id>/
+    PUT /api/dossiers/clients/<id>/
+    """
+
+    queryset         = Client.objects.all()
+    serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return [EstCommercial()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -74,8 +94,10 @@ class ListeDossiersView(generics.ListCreateAPIView):
     def get_queryset(self):
         """
         Filtre les dossiers selon le rôle de l'utilisateur connecté.
-        Chaque acteur ne voit que les dossiers qui le concernent.
+        Chaque acteur ne voit que les dossiers qui le concernent
+        directement, à l'étape où il doit intervenir.
         """
+
         user = self.request.user
 
         if user.est_commercial:
@@ -87,25 +109,40 @@ class ListeDossiersView(generics.ListCreateAPIView):
             )
 
         if user.est_analyste:
+            # Seuls les dossiers réellement assignés à CET analyste,
+            # d'après le dernier enregistrement de validation
+            dernier_assigne = ValidationDossier.objects.filter(
+                dossier=OuterRef('pk')
+            ).order_by('-date').values('assigne_a')[:1]
+
             return Dossier.objects.filter(
                 statut__in=[
                     Dossier.Statut.EN_ANALYSE_1,
                     Dossier.Statut.EN_ANALYSE_2,
                 ]
-            )
+            ).annotate(
+                dernier_assigne_id=Subquery(dernier_assigne)
+            ).filter(dernier_assigne_id=user.id)
 
         if user.est_chef_agence_analyse:
             return Dossier.objects.filter(
                 statut=Dossier.Statut.ANALYSE_TERMINEE
-        )
-            
-        if user.est_direction:
-            return Dossier.objects.filter(
-                statut=Dossier.Statut.ANALYSE_TERMINEE,
-                necessite_comite=False
             )
 
-        return Dossier.objects.all()
+        if user.est_direction:
+            return Dossier.objects.filter(
+                statut=Dossier.Statut.EN_DECISION
+            )
+
+        if user.role == 'COMITE':
+            return Dossier.objects.filter(
+                statut=Dossier.Statut.EN_COMITE
+            )
+
+        if user.role == 'ADMINISTRATEUR':
+            return Dossier.objects.all()
+
+        return Dossier.objects.none()
 
     def perform_create(self, serializer):
         """Associe automatiquement le commercial connecté au dossier."""
@@ -392,6 +429,12 @@ def historique_salaires(request, client_pk):
         return Response(data)
     
     client = get_object_or_404(Client, pk=client_pk)
+    
+    if request.method == 'POST' and not request.user.est_commercial:
+        return Response(
+            {'detail': 'Seul le commercial peut effectuer cette action.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
     if request.method == 'POST' and not request.user.est_commercial:
         return Response(
@@ -601,6 +644,7 @@ def marquer_notification_lue(request, pk):
     notif.lue = True
     notif.save()
     return Response({'detail': 'Notification marquée comme lue.'})
+
 
 @api_view(['DELETE'])
 @permission_classes([EstCommercial])
