@@ -57,6 +57,7 @@ const MENUS: Record<string, ItemMenu[]> = {
   ],
   ADMINISTRATEUR: [
     { label: "Tableau de bord", href: "/dashboard",     icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
+    { label: "Clients",     href: "/clients",       icon: <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
     { label: "Dossiers",        href: "/dossiers",      icon: <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /> },
     { label: "Validation",      href: "/validation",    icon: <Icon d="M20 6L9 17l-5-5" /> },
     { label: "Analyse",         href: "/analyse",       icon: <Icon d="M18 20V10M12 20V4M6 20v-6" /> },
@@ -108,7 +109,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
           const actif = pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
 
           return (
             <Link

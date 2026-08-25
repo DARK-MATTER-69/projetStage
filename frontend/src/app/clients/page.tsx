@@ -173,4 +173,6 @@ export default function ClientsPage() {
       </div>
     </MainLayout>
   );
+
 }
+
