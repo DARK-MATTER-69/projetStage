@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { dossiersService } from "@/services/dossiersService";
 import { analystesService, Analyste } from "@/services/analystesService";
+import ModalDecision from "@/components/dossiers/ModalDecision";
 import { useAuthStore } from "@/store/authStore";
 import { EtatChargement } from "@/components/ui/EtatChargement";
 import MainLayout from "@/components/layout/MainLayout";
+
 
 interface DossierValidation {
   id:                number;
@@ -53,6 +55,43 @@ const LABELS_DECISION: Record<string, string> = {
   FAVORABLE:    "Favorable",
   CONDITIONNEL: "Conditionnel",
   DEFAVORABLE:  "Défavorable",
+};
+
+/**
+ * Titre et texte de contexte affichés selon le rôle du validateur connecté,
+ * pour que chaque acteur comprenne clairement la nature de sa décision.
+ */
+const CONTEXTE_PAR_ROLE: Record <string,{ titre: string; etiquette: string; description: string }> = {
+  CHEF_AGENCE_COMMERCIALE: {
+    titre: "1er visa — Chef d'agence commerciale",
+    etiquette: "Premier visa",
+    description:
+      "Vous validez ici la recevabilité du dossier et désignez le 1er analyste chargé de l'instruire.",
+  },
+  CHEF_AGENCE_ANALYSE: {
+    titre: "2ème visa — Chef d'agence analyse",
+    etiquette: "Visa après double analyse",
+    description:
+      "Le dossier a été instruit par deux analystes distincts. Vous validez leur avis avant transmission au comité ou à la direction.",
+  },
+  COMITE: {
+    titre: "Décision du comité de crédit",
+    etiquette: "Dossier soumis au comité",
+    description:
+      "Ce dossier dépasse le seuil nécessitant une décision collégiale. Votre avis engage le comité, la décision finale reste rendue par la direction.",
+  },
+  DIRECTION: {
+    titre: "Décision finale — Direction",
+    etiquette: "Décision définitive",
+    description:
+      "Il s'agit de la dernière étape du circuit : votre décision clôture définitivement le dossier (approbation ou rejet).",
+  },
+};
+
+const DEFAUT_CONTEXTE = {
+  titre: "Validation des dossiers",
+  etiquette: "",
+  description: "",
 };
 
 const formaterMontant = (v: number) =>
@@ -347,138 +386,154 @@ export default function ValidationPage() {
     (d) => !["APPROUVE", "REJETE"].includes(d.statut)
   );
 
+  const contexte = CONTEXTE_PAR_ROLE[utilisateur?.role || ""] || DEFAUT_CONTEXTE;
+
   return (
-    <MainLayout titre="Validation des dossiers">
-      {erreur && 
-        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">{erreur}</div>
-      }
+      <MainLayout titre={contexte.titre}>
+       <div className="space-y-5">
 
-      <div className="space-y-5">
+          {contexte.description && (
+            <div className="bg-white border border-gray-100 rounded-xl px-5 py-4">
+              {contexte.etiquette && (
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium
+                                  text-[var(--color-brand)] bg-[var(--color-brand)]/10 mb-2">
+                  {contexte.etiquette}
+                </span>
+              )}
+              <p className="text-sm text-gray-600">{contexte.description}</p>
+            </div>
+          )}
+          {erreur && 
+            <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">{erreur}</div>
+          }
 
-        {/* Dossiers en attente */}
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50">
-            <h2 className="text-sm font-semibold text-gray-800">
-              En attente de validation
-            </h2>
+        <div className="space-y-5">
+
+          {/* Dossiers en attente */}
+          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-50">
+              <h2 className="text-sm font-semibold text-gray-800">
+                En attente de validation
+              </h2>
+            </div>
+
+            { chargement ? (
+                <EtatChargement message="Chargement des dossiers..." />
+              ) : dossiersEnAttente.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-gray-400">
+                  Aucun dossier en attente.
+                </p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {dossiersEnAttente.map((d) => (
+                    <div key={d.id}
+                      className="px-5 py-4 flex items-center gap-4
+                                hover:bg-gray-50/50 transition-colors">
+
+                      <p className="text-xs font-mono text-gray-400 w-16 shrink-0">
+                        #{String(d.id).padStart(5, "0")}
+                      </p>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {d.client_nom}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {d.commercial_nom} · {d.type_credit_display}
+                        </p>
+                      </div>
+
+                      <p className="text-sm text-gray-700 w-36 shrink-0 text-right">
+                        {formaterMontant(d.montant_sollicite)}
+                      </p>
+
+                      {d.score !== null ? (
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full
+                                          w-20 text-center shrink-0
+                                          ${COULEURS_RISQUE[d.niveau_risque ?? ""] ?? "text-gray-600 bg-gray-50"}`}>
+                          {d.score}/100
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 w-20 text-center shrink-0">
+                          —
+                        </span>
+                      )}
+
+                      {d.decision_ia && (
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full
+                                          shrink-0 ${COULEURS_DECISION[d.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
+                          {LABELS_DECISION[d.decision_ia] ?? d.decision_ia}
+                        </span>
+                      )}
+
+                      {d.necessite_comite && (
+                        <span className="text-[11px] font-medium px-2 py-1 rounded-full
+                                        bg-pink-50 text-pink-600 shrink-0">
+                          Comité
+                        </span>
+                      )}
+
+                      <button
+                        onClick={() => setDossierSelectionne(d)}
+                        className="h-8 px-3 rounded-lg text-xs font-medium text-white
+                                  shrink-0 transition-all hover:opacity-90"
+                        style={{ background: "var(--color-brand)" }}
+                      >
+                        Valider
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
           </div>
 
-          { chargement ? (
-              <EtatChargement message="Chargement des dossiers..." />
-            ) : dossiersEnAttente.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">
-                Aucun dossier en attente.
-              </p>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {dossiersEnAttente.map((d) => (
-                  <div key={d.id}
-                    className="px-5 py-4 flex items-center gap-4
-                               hover:bg-gray-50/50 transition-colors">
-
-                    <p className="text-xs font-mono text-gray-400 w-16 shrink-0">
-                      #{String(d.id).padStart(5, "0")}
-                    </p>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">
-                        {d.client_nom}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {d.commercial_nom} · {d.type_credit_display}
+          {/* Dossiers traités */}
+          {historique.length > 0 && (
+            <div className="mt-8 bg-white rounded-xl border border-gray-100">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-800">
+                  Vos décisions récentes
+                </h2>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {historique.map((h) => (
+                  <div key={h.id} className="px-5 py-3 flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-gray-800">{h.client_nom}</p>
+                      <p className="text-xs text-gray-500">
+                        {formaterMontant(h.montant_sollicite)} · {new Date(h.date).toLocaleDateString("fr-FR")}
                       </p>
                     </div>
-
-                    <p className="text-sm text-gray-700 w-36 shrink-0 text-right">
-                      {formaterMontant(d.montant_sollicite)}
-                    </p>
-
-                    {d.score !== null ? (
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                        w-20 text-center shrink-0
-                                        ${COULEURS_RISQUE[d.niveau_risque ?? ""] ?? "text-gray-600 bg-gray-50"}`}>
-                        {d.score}/100
+                    <div className="text-right">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium
+                          ${h.decision === "APPROUVE"
+                            ? "text-green-600 bg-green-50"
+                            : "text-red-600 bg-red-50"}`}
+                      >
+                        Votre décision : {h.decision_display}
                       </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 w-20 text-center shrink-0">
-                        —
-                      </span>
-                    )}
-
-                    {d.decision_ia && (
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                        shrink-0 ${COULEURS_DECISION[d.decision_ia] ?? "text-gray-600 bg-gray-50"}`}>
-                        {LABELS_DECISION[d.decision_ia] ?? d.decision_ia}
-                      </span>
-                    )}
-
-                    {d.necessite_comite && (
-                      <span className="text-[11px] font-medium px-2 py-1 rounded-full
-                                       bg-pink-50 text-pink-600 shrink-0">
-                        Comité
-                      </span>
-                    )}
-
-                    <button
-                      onClick={() => setDossierSelectionne(d)}
-                      className="h-8 px-3 rounded-lg text-xs font-medium text-white
-                                 shrink-0 transition-all hover:opacity-90"
-                      style={{ background: "var(--color-brand)" }}
-                    >
-                      Valider
-                    </button>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Statut actuel du dossier : {h.statut_actuel_display}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+          )}
         </div>
 
-        {/* Dossiers traités */}
-        {historique.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl border border-gray-100">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-800">
-                Vos décisions récentes
-              </h2>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {historique.map((h) => (
-                <div key={h.id} className="px-5 py-3 flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-medium text-gray-800">{h.client_nom}</p>
-                    <p className="text-xs text-gray-500">
-                      {formaterMontant(h.montant_sollicite)} · {new Date(h.date).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium
-                        ${h.decision === "APPROUVE"
-                          ? "text-green-600 bg-green-50"
-                          : "text-red-600 bg-red-50"}`}
-                    >
-                      Votre décision : {h.decision_display}
-                    </span>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Statut actuel du dossier : {h.statut_actuel_display}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Modal de validation */}
+        {dossierSelectionne && (
+          <ModalDecision
+            dossier={dossierSelectionne}
+            roleActuel={utilisateur?.role}
+            onFermer={() => setDossierSelectionne(null)}
+            onValider={handleValider}
+          />
         )}
       </div>
-
-      {/* Modal de validation */}
-      {dossierSelectionne && (
-        <ModalValidation
-          dossier={dossierSelectionne}
-          roleActuel={utilisateur?.role}
-          onFermer={() => setDossierSelectionne(null)}
-          onValider={handleValider}
-        />
-      )}
     </MainLayout>
   );
 }

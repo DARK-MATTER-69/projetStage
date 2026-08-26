@@ -7,6 +7,7 @@ import { dossiersService } from "@/services/dossiersService";
 import { EtatChargement, EtatErreur } from "@/components/ui/EtatChargement";
 import JaugeScore from "@/components/ui/JaugeScore";
 import { useAuthStore } from "@/store/authStore";
+import ModalDecision from "@/components/dossiers/ModalDecision";
 
 // Garder toutes les interfaces et composants Info, Section du fichier existant
 // Remplacer uniquement la fonction principale
@@ -20,6 +21,8 @@ export default function DetailDossierPage() {
   const [chargement, setChargement] = useState(true);
   const [erreur,     setErreur]     = useState("");
   const [messageSucces, setMessageSucces] = useState<string | null>(null);
+  const [modaleOuverte, setModaleOuverte] = useState(false);
+  const utilisateur = useAuthStore((s) => s.utilisateur);
 
   useEffect(() => {
     const charger = async () => {
@@ -46,6 +49,27 @@ export default function DetailDossierPage() {
     !score         ? "#9ca3af" :
     score.score >= 70 ? "#16a34a" :
     score.score >= 50 ? "#ea580c" : "#dc2626";
+
+  const ETAPES_PAR_ROLE: Record<string, string[]> = {
+  CHEF_AGENCE_COMMERCIALE: ["SOUMIS"],
+  ANALYSTE:                ["EN_ANALYSE_1", "EN_ANALYSE_2"],
+  CHEF_AGENCE_ANALYSE:     ["ANALYSE_TERMINEE"],
+  COMITE:                  ["EN_COMITE"],
+  DIRECTION:               ["EN_DECISION"],
+  };
+
+  const peutDecider =
+    !!utilisateur?.role &&
+    ETAPES_PAR_ROLE[utilisateur.role]?.includes(d.statut);
+
+  const handleValider = async (
+    id: number, decision: string, commentaire: string, assigneA?: number
+  ) => {
+    await dossiersService.valider(id, { decision, commentaire, assigne_a: assigneA });
+    const data = await dossiersService.detail(id);
+    setDossier(data);
+    setModaleOuverte(false);
+  };
 
   const COULEURS_RISQUE: Record<string, string> = {
     FAIBLE:   "text-green-600 bg-green-50 border-green-100",
@@ -320,6 +344,40 @@ export default function DetailDossierPage() {
           </div>
         </div>
       </div>
+
+      {peutDecider && (
+        <div className="mt-6 bg-white border border-gray-100 rounded-xl px-5 py-4
+                        flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Ce dossier attend votre décision.
+          </p>
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="h-10 px-5 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: "var(--color-brand)" }}
+          >
+            Approuver / Rejeter
+          </button>
+        </div>
+      )}
+
+      {modaleOuverte && (
+        <ModalDecision
+          dossier={{
+            id:                d.id,
+            client_nom:        `${d.client?.prenom ?? ""} ${d.client?.nom ?? ""}`.trim(),
+            montant_sollicite: d.montant_sollicite,
+            statut:            d.statut,
+            necessite_comite:  d.necessite_comite,
+            score:             score?.score ?? null,
+            niveau_risque:     score?.niveau_risque ?? null,
+            decision_ia:       score?.decision_ia ?? null,
+          }}
+          roleActuel={utilisateur?.role}
+          onFermer={() => setModaleOuverte(false)}
+          onValider={handleValider}
+        />
+      )}
     </MainLayout>
   );
 }
