@@ -61,6 +61,15 @@ export const dossiersService = {
     const { data } = await api.post(`/api/dossiers/${id}/valider/`, payload);
     return data;
   },
+
+  /**
+   * Récupère l'historique personnel des décisions prises
+   * par l'utilisateur connecté (chef d'agence, analyste, direction, comité).
+   */
+  historique: async () => {
+    const { data } = await api.get("/api/dossiers/historique/");
+    return data;
+  },
   
   /**
    * Recalcule manuellement le score d'un dossier

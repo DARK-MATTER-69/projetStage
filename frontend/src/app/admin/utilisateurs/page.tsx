@@ -287,7 +287,7 @@ const handleSauvegarder = async (u: Utilisateur) => {
     const data = await adminService.listerUtilisateurs();
     setUtilisateurs(data.results || data);
   } catch {
-    setErreur("Impossible d'enregistrer l'utilisateur.");
+    setErreur("Impossible d'enregistrer l'utilisateur. Vérifiez les champs saisis.");
   }
   setModalOuverte(false);
   setUtilisateurEdite(null);
@@ -302,7 +302,7 @@ const handleToggleActif = async (id: number) => {
       prev.map((x) => x.id === id ? { ...x, is_active: !x.is_active } : x)
     );
   } catch {
-    // Silencieux
+    setErreur("Impossible de modifier le statut de ce compte.");
   }
 };
 
@@ -372,6 +372,12 @@ const handleToggleActif = async (id: number) => {
               </tr>
             </thead>
             <tbody>
+              {erreur && (
+                <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-100">
+                  {erreur}
+                </div>
+              )}
+              
               {utilisateursFiltres.map((u) => (
                 <tr key={u.id}
                   className="border-b border-gray-50 hover:bg-gray-50/50

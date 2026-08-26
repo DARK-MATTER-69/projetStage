@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     # Clients
     path('clients/',                               views.ListeClientsView.as_view(),   name='liste_clients'),
+    path('clients/recherche/',                     views.rechercher_client,            name='rechercher_client'),
     path('clients/<int:pk>/',                      views.DetailClientView.as_view(),   name='detail_client'),
     path('clients/<int:client_pk>/salaires/',      views.historique_salaires,          name='historique_salaires'),
     path('clients/<int:client_pk>/impayes/',       views.impayes_client,               name='impayes_client'),
@@ -16,11 +17,13 @@ urlpatterns = [
     path('<int:pk>/valider/',                      views.valider_dossier,              name='valider_dossier'),
     path('<int:pk>/documents/',                    views.upload_document,              name='upload_document'),
     path('<int:pk>/recalculer/',                   views.recalculer_score,             name='recalculer_score'),
-    path('clients/recherche/',                     views.rechercher_client,            name='rechercher_client'),
     path('notifications/',                         views.mes_notifications,            name='mes_notifications'),
     path('notifications/<int:pk>/lue/',            views.marquer_notification_lue,     name='notification_lue'),
     path('<int:pk>/supprimer/',                    views.supprimer_dossier,            name='supprimer_dossier'),
 
     # Dashboard
     path('dashboard/stats/',                       views.stats_dashboard,              name='stats_dashboard'),
+    
+    # Historique personnel des décisions
+    path('historique/',                            views.HistoriqueValidationsView.as_view(), name='historique_validations'),
 ]

@@ -19,6 +19,7 @@ export default function DetailDossierPage() {
   const [dossier,    setDossier]    = useState<any>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur,     setErreur]     = useState("");
+  const [messageSucces, setMessageSucces] = useState<string | null>(null);
 
   useEffect(() => {
     const charger = async () => {
@@ -84,6 +85,13 @@ export default function DetailDossierPage() {
 
   return (
     <MainLayout titre={`Dossier #${String(id).padStart(5, "0")}`}>
+      {messageSucces && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 text-green-700 text-sm border border-green-100 flex items-center justify-between">
+          <span>{messageSucces}</span>
+          <button onClick={() => setMessageSucces(null)} className="text-green-500 hover:text-green-700">✕</button>
+        </div>
+      )}
+
       <div className="space-y-4">
 
         {/* Barre d'actions */}
@@ -135,7 +143,7 @@ export default function DetailDossierPage() {
               <button
                 onClick={async () => {
                   const res = await dossiersService.soumettre(dossier.id);
-                  alert(`Dossier soumis — score : ${res.score}/100`);
+                  setMessageSucces(`Dossier soumis avec succès — score : ${res.score}/100`);
                   router.refresh();
                 }}
                 className="h-9 px-4 rounded-lg text-sm font-medium text-white"

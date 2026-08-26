@@ -23,6 +23,19 @@ interface DossierValidation {
   cree_le:           string;
 }
 
+interface HistoriqueValidation {
+  id:                     number;
+  dossier_id:             number;
+  client_nom:             string;
+  montant_sollicite:      number;
+  decision:               string;
+  decision_display:       string;
+  commentaire:            string;
+  date:                   string;
+  statut_actuel_dossier:  string;
+  statut_actuel_display:  string;
+}
+
 const COULEURS_RISQUE: Record<string, string> = {
   FAIBLE:   "text-green-600 bg-green-50",
   MOYEN:    "text-orange-600 bg-orange-50",
@@ -290,6 +303,8 @@ export default function ValidationPage() {
   const [dossiers,           setDossiers]           = useState<DossierValidation[]>([]);
   const [chargement,         setChargement]         = useState(true);
   const [dossierSelectionne, setDossierSelectionne] = useState<DossierValidation | null>(null);
+  const [erreur,             setErreur]             = useState<string | null>(null);
+  const [historique,         setHistorique]         = useState<HistoriqueValidation[]>([]);
 
   const charger = async () => {
     try {
@@ -297,14 +312,24 @@ export default function ValidationPage() {
       const liste = (data.results || data) as DossierValidation[];
       setDossiers(liste);
     } catch {
-      // Silencieux
+      setErreur("Impossible de charger les dossiers à valider.");
     } finally {
       setChargement(false);
     }
   };
 
+  const chargerHistorique = async () => {
+    try {
+      const data = await dossiersService.historique();
+      setHistorique(data.results || data);
+    } catch {
+      // Non bloquant : l'historique est secondaire par rapport à la liste à traiter.
+    }
+  };
+
   useEffect(() => {
     charger();
+    chargerHistorique();
   }, []);
 
   const handleValider = async (
@@ -322,12 +347,12 @@ export default function ValidationPage() {
     (d) => !["APPROUVE", "REJETE"].includes(d.statut)
   );
 
-  const dossiersTraites = dossiers.filter(
-    (d) => ["APPROUVE", "REJETE"].includes(d.statut)
-  );
-
   return (
     <MainLayout titre="Validation des dossiers">
+      {erreur && 
+        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">{erreur}</div>
+      }
+
       <div className="space-y-5">
 
         {/* Dossiers en attente */}
@@ -409,37 +434,35 @@ export default function ValidationPage() {
         </div>
 
         {/* Dossiers traités */}
-        {dossiersTraites.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-50">
+        {historique.length > 0 && (
+          <div className="mt-8 bg-white rounded-xl border border-gray-100">
+            <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-800">
-                Traités récemment
+                Vos décisions récentes
               </h2>
             </div>
-            <div className="divide-y divide-gray-50">
-              {dossiersTraites.map((d) => (
-                <div key={d.id}
-                  className="px-5 py-4 flex items-center gap-4">
-                  <p className="text-xs font-mono text-gray-400 w-16 shrink-0">
-                    #{String(d.id).padStart(5, "0")}
-                  </p>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {d.client_nom}
+            <div className="divide-y divide-gray-100">
+              {historique.map((h) => (
+                <div key={h.id} className="px-5 py-3 flex items-center justify-between text-sm">
+                  <div>
+                    <p className="font-medium text-gray-800">{h.client_nom}</p>
+                    <p className="text-xs text-gray-500">
+                      {formaterMontant(h.montant_sollicite)} · {new Date(h.date).toLocaleDateString("fr-FR")}
                     </p>
-                    <p className="text-xs text-gray-400">{d.type_credit_display}</p>
                   </div>
-                  <p className="text-sm text-gray-700 w-36 shrink-0 text-right">
-                    {formaterMontant(d.montant_sollicite)}
-                  </p>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full
-                                    shrink-0
-                                    ${d.statut === "APPROUVE"
-                                      ? "bg-green-50 text-green-600"
-                                      : "bg-red-50 text-red-600"
-                                    }`}>
-                    {d.statut === "APPROUVE" ? "Approuvé" : "Rejeté"}
-                  </span>
+                  <div className="text-right">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium
+                        ${h.decision === "APPROUVE"
+                          ? "text-green-600 bg-green-50"
+                          : "text-red-600 bg-red-50"}`}
+                    >
+                      Votre décision : {h.decision_display}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Statut actuel du dossier : {h.statut_actuel_display}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

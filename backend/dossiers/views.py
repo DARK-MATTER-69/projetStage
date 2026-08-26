@@ -17,6 +17,7 @@ from .serializers import (
     DocumentDossierSerializer,
     ValidationDossierSerializer,
     ClientDetailSerializer,
+    HistoriqueValidationSerializer
 )
 from .permissions import EstCommercial, PeutValiderDossier
 from scoring.services import calculer_et_sauvegarder_score
@@ -153,6 +154,25 @@ class ListeDossiersView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         """Associe automatiquement le commercial connecté au dossier."""
         serializer.save(commercial=self.request.user)
+
+
+class HistoriqueValidationsView(generics.ListAPIView):
+    """
+    Historique des décisions personnellement prises par l'utilisateur
+    connecté, les plus récentes en premier (20 maximum).
+
+    GET /api/dossiers/historique/
+    """
+    serializer_class   = HistoriqueValidationSerializer
+    permission_classes = [PeutValiderDossier]
+
+    def get_queryset(self):
+        return (
+            ValidationDossier.objects
+            .filter(validateur=self.request.user)
+            .select_related('dossier', 'dossier__client')
+            .order_by('-date')[:20]
+        )
 
 
 class DetailDossierView(generics.RetrieveUpdateAPIView):

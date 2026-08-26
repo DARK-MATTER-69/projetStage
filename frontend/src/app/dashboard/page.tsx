@@ -111,7 +111,7 @@ export default function DashboardPage() {
             montant_total:      0,
           });
         } catch {
-          // Silencieux
+          console.error("Impossible de charger les données du tableau de bord.");
         }
       } finally {
         setChargement(false);

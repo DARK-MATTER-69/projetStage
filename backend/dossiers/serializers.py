@@ -177,3 +177,29 @@ class ClientDetailSerializer(ClientSerializer):
 
     class Meta(ClientSerializer.Meta):
         fields = ClientSerializer.Meta.fields + ['dossiers']
+        
+class HistoriqueValidationSerializer(serializers.ModelSerializer):
+    """
+    Représente une décision passée d'un validateur, avec le contexte
+    du dossier concerné, pour l'écran "Traités récemment".
+    """
+    dossier_id       = serializers.IntegerField(source='dossier.id', read_only=True)
+    client_nom       = serializers.SerializerMethodField()
+    montant_sollicite = serializers.DecimalField(
+        source='dossier.montant_sollicite', max_digits=12, decimal_places=0, read_only=True
+    )
+    statut_actuel_dossier = serializers.CharField(source='dossier.statut', read_only=True)
+    statut_actuel_display  = serializers.CharField(source='dossier.get_statut_display', read_only=True)
+    decision_display  = serializers.CharField(source='get_decision_display', read_only=True)
+
+    class Meta:
+        model  = ValidationDossier
+        fields = [
+            'id', 'dossier_id', 'client_nom', 'montant_sollicite',
+            'decision', 'decision_display', 'commentaire', 'date',
+            'statut_actuel_dossier', 'statut_actuel_display',
+        ]
+
+    def get_client_nom(self, obj):
+        client = obj.dossier.client
+        return f"{client.prenom} {client.nom}"
