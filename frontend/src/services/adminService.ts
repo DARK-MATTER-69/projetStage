@@ -22,7 +22,7 @@ export const adminService = {
     role:       string;
     agence:     string;
     telephone:  string;
-    password:   string;
+    password?:   string;
   }) => {
     const { data } = await api.post("/api/auth/utilisateurs/", payload);
     return data;

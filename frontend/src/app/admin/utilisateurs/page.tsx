@@ -17,19 +17,8 @@ interface Utilisateur {
   agence:     string;
   telephone:  string;
   is_active:  boolean;
+  password?: string
 }
-
-// Données de démonstration
-const UTILISATEURS: Utilisateur[] = [
-  { id: 1, username: "admin",       first_name: "Super",      last_name: "Admin",    email: "admin@sce.cm",      role: "ADMINISTRATEUR", agence: "Siège",         telephone: "677000001", is_active: true  },
-  { id: 2, username: "brayann",     first_name: "Brayann",    last_name: "Noubissie", email: "brayann@sce.cm",   role: "COMMERCIAL",     agence: "Yaoundé Centre", telephone: "677000002", is_active: true  },
-  { id: 3, username: "chef.yde",    first_name: "Paul",       last_name: "Ateba",    email: "pateba@sce.cm",     role: "CHEF_AGENCE",    agence: "Yaoundé Centre", telephone: "677000003", is_active: true  },
-  { id: 4, username: "analyste1",   first_name: "Marie",      last_name: "Ngo",      email: "mngo@sce.cm",       role: "ANALYSTE",       agence: "Yaoundé Centre", telephone: "677000004", is_active: true  },
-  { id: 5, username: "analyste2",   first_name: "Jean",       last_name: "Fono",     email: "jfono@sce.cm",      role: "ANALYSTE",       agence: "Douala",         telephone: "677000005", is_active: true  },
-  { id: 6, username: "direction",   first_name: "Robert",     last_name: "Nguele",   email: "rnguele@sce.cm",    role: "DIRECTION",      agence: "Siège",          telephone: "677000006", is_active: true  },
-  { id: 7, username: "comite1",     first_name: "Christelle", last_name: "Kameni",   email: "ckameni@sce.cm",    role: "COMITE",         agence: "Siège",          telephone: "677000007", is_active: true  },
-  { id: 8, username: "comm.dla",    first_name: "Cécile",     last_name: "Essomba",  email: "cessomba@sce.cm",   role: "COMMERCIAL",     agence: "Douala",         telephone: "677000008", is_active: false },
-];
 
 const COULEURS_ROLES: Record<string, string> = {
   ADMINISTRATEUR: "bg-purple-50 text-purple-600",
@@ -72,6 +61,7 @@ function ModalUtilisateur({ utilisateur, onFermer, onSauvegarder }: ModalUtilisa
     onSauvegarder({
       id: utilisateur?.id || Date.now(),
       ...form,
+      password,
     });
     setChargement(false);
   };
@@ -248,11 +238,12 @@ function ModalUtilisateur({ utilisateur, onFermer, onSauvegarder }: ModalUtilisa
 }
 
 export default function AdminUtilisateursPage() {
-  const [utilisateurs,     setUtilisateurs]     = useState<Utilisateur[]>([]);
+const [utilisateurs,     setUtilisateurs]     = useState<Utilisateur[]>([]);
 const [chargement,       setChargement]       = useState(true);
 const [modalOuverte,     setModalOuverte]     = useState(false);
 const [utilisateurEdite, setUtilisateurEdite] = useState<Utilisateur | null>(null);
 const [recherche,        setRecherche]        = useState("");
+const [erreur,           setErreur]           = useState<string | null>(null);
 
 useEffect(() => {
   const charger = async () => {
@@ -260,7 +251,7 @@ useEffect(() => {
       const data = await adminService.listerUtilisateurs();
       setUtilisateurs(data.results || data);
     } catch {
-      // Silencieux
+      setErreur("Impossible de charger la liste des utilisateurs.");
     } finally {
       setChargement(false);
     }
@@ -289,14 +280,14 @@ const handleSauvegarder = async (u: Utilisateur) => {
         role:       u.role,
         agence:     u.agence,
         telephone:  u.telephone,
-        password:   "Sce@2025!", // Mot de passe temporaire
+        password:   u.password, // Mot de passe temporaire
       });
     }
     // Recharger la liste
     const data = await adminService.listerUtilisateurs();
     setUtilisateurs(data.results || data);
   } catch {
-    // Silencieux
+    setErreur("Impossible d'enregistrer l'utilisateur.");
   }
   setModalOuverte(false);
   setUtilisateurEdite(null);

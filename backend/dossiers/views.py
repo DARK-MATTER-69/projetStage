@@ -65,6 +65,12 @@ class DetailClientView(generics.RetrieveUpdateAPIView):
     queryset         = Client.objects.all()
     serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.est_commercial:
+            return Client.objects.filter(cree_par=user)
+        return Client.objects.all()
 
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -160,6 +166,18 @@ class DetailDossierView(generics.RetrieveUpdateAPIView):
     queryset           = Dossier.objects.all()
     serializer_class   = DossierDetailSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.est_commercial:
+            return Dossier.objects.filter(commercial=user)
+        return Dossier.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        dossier = self.get_object()
+        if dossier.fiche2_verrouillee and request.user.est_commercial:
+            return Response({'detail': 'Dossier verrouillé, modification impossible.'}, status=403)
+        return super().update(request, *args, **kwargs)
 
 
 @api_view(['POST'])
@@ -213,23 +231,39 @@ def valider_dossier(request, pk):
         "assigne_a":   <id_analyste>  (requis pour chef d'agence)
     }
     """
+    from accounts.models import Utilisateur
+
     dossier    = get_object_or_404(Dossier, pk=pk)
     user       = request.user
     decision   = request.data.get('decision')
     commentaire = request.data.get('commentaire', '')
     assigne_a_id = request.data.get('assigne_a')
-    
-    def _notifier(dossier, message):
-        """Crée une notification pour le commercial propriétaire du dossier."""
+
+    def _notifier_un(destinataire, message):
+        """Crée une notification pour UN destinataire."""
+        if not destinataire:
+            return
         Notification.objects.create(
-        destinataire=dossier.commercial,
-        dossier=dossier,
-        message=message,
-    )
+            destinataire=destinataire,
+            dossier=dossier,
+            message=message,
+        )
+
+    def _notifier_role(role, message):
+        """Crée une notification pour TOUS les utilisateurs actifs d'un rôle donné."""
+        destinataires = Utilisateur.objects.filter(role=role, is_active=True)
+        for u in destinataires:
+            _notifier_un(u, message)
 
     if not decision:
         return Response(
             {'detail': 'La décision est requise.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if decision not in [ValidationDossier.Decision.APPROUVE, ValidationDossier.Decision.REJETE]:
+        return Response(
+            {'detail': 'Décision invalide.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -244,7 +278,6 @@ def valider_dossier(request, pk):
     # Récupérer l'analyste assigné si fourni
     assigne_a = None
     if assigne_a_id:
-        from accounts.models import Utilisateur
         try:
             assigne_a = Utilisateur.objects.get(
                 pk=assigne_a_id,
@@ -256,6 +289,12 @@ def valider_dossier(request, pk):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    if assigne_a and assigne_a.id == user.id:
+        return Response(
+            {'detail': 'Vous ne pouvez pas vous assigner vous-même.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     # Enregistrement de la validation
     ValidationDossier.objects.create(
         dossier     = dossier,
@@ -266,7 +305,7 @@ def valider_dossier(request, pk):
         assigne_a   = assigne_a,
     )
 
-    # Mise à jour du statut
+    # Mise à jour du statut + notification de l'acteur suivant
     if decision == ValidationDossier.Decision.REJETE:
         dossier.statut = Dossier.Statut.REJETE
 
@@ -277,9 +316,11 @@ def valider_dossier(request, pk):
                     {'detail': 'Vous devez assigner un analyste.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            dossier.statut = Dossier.Statut.VALIDE_CHEF_COMMERCIAL   
-            dossier.save()
-            dossier.statut = Dossier.Statut.EN_ANALYSE_1   
+            dossier.statut = Dossier.Statut.EN_ANALYSE_1
+            _notifier_un(
+                assigne_a,
+                f'Le dossier #{dossier.id} vous est assigné pour analyse (1er avis).'
+            )
 
     elif user.est_analyste:
         if dossier.statut == Dossier.Statut.EN_ANALYSE_1:
@@ -289,36 +330,53 @@ def valider_dossier(request, pk):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             dossier.statut = Dossier.Statut.EN_ANALYSE_2
+            _notifier_un(
+                assigne_a,
+                f'Le dossier #{dossier.id} vous est assigné pour la 2ème analyse.'
+            )
 
         elif dossier.statut == Dossier.Statut.EN_ANALYSE_2:
             dossier.statut = Dossier.Statut.ANALYSE_TERMINEE
+            _notifier_role(
+                Utilisateur.Role.CHEF_AGENCE_ANALYSE,
+                f'Le dossier #{dossier.id} a terminé sa double analyse et attend votre visa.'
+            )
 
     elif user.est_chef_agence_analyse:
         if dossier.statut == Dossier.Statut.ANALYSE_TERMINEE:
-            dossier.statut = Dossier.Statut.VALIDE_CHEF_ANALYSTE   
-            dossier.save()
             if dossier.necessite_comite:
                 dossier.statut = Dossier.Statut.EN_COMITE
+                _notifier_role(
+                    Utilisateur.Role.COMITE,
+                    f'Le dossier #{dossier.id} attend la décision du comité.'
+                )
             else:
                 dossier.statut = Dossier.Statut.EN_DECISION
+                _notifier_role(
+                    Utilisateur.Role.DIRECTION,
+                    f'Le dossier #{dossier.id} attend la décision finale de la direction.'
+                )
 
     elif user.role == 'COMITE':
         if dossier.statut == Dossier.Statut.EN_COMITE:
             dossier.statut = Dossier.Statut.EN_DECISION
+            _notifier_role(
+                Utilisateur.Role.DIRECTION,
+                f'Le dossier #{dossier.id} a reçu l\'avis du comité et attend la décision finale.'
+            )
 
     elif user.est_direction:
         if dossier.statut == Dossier.Statut.EN_DECISION:
             dossier.statut = Dossier.Statut.APPROUVE
 
     dossier.save()
+
     if dossier.statut == Dossier.Statut.APPROUVE:
-        _notifier(dossier, f'Dossier #{dossier.id} approuvé.')
+        _notifier_un(dossier.commercial, f'Votre dossier #{dossier.id} a été approuvé.')
     elif dossier.statut == Dossier.Statut.REJETE:
-        _notifier(dossier, f'Dossier #{dossier.id} rejeté.')
+        _notifier_un(dossier.commercial, f'Votre dossier #{dossier.id} a été rejeté.')
 
-    dossier.save()
     return Response({'detail': 'Décision enregistrée avec succès.'})
-
 
 def _determiner_etape(user, dossier):
     """
@@ -436,12 +494,6 @@ def historique_salaires(request, client_pk):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    if request.method == 'POST' and not request.user.est_commercial:
-        return Response(
-            {'detail': 'Seul le commercial peut effectuer cette action.'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-        
     elif request.method == 'POST':
         salaire    = request.data.get('salaire')
         date_effet = request.data.get('date_effet')

@@ -275,26 +275,26 @@ export default function DetailDossierPage() {
               )}
             </div>
 
-            {score?.recommandation_ia && (
+            {score?.recommandation && (
               <div className="bg-white border border-gray-100 rounded-xl p-5">
                 <h2 className="text-xs font-semibold text-gray-500 uppercase
                                tracking-widest mb-3">
                   Recommandation IA
                 </h2>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  {score.recommandation_ia}
+                  {score.recommandation}
                 </p>
               </div>
             )}
 
-            {score?.conditions_proposees && (
+            {score?.conditions && (
               <div className="bg-orange-50 border border-orange-100 rounded-xl p-5">
                 <h2 className="text-xs font-semibold text-orange-600 uppercase
                                tracking-widest mb-3">
                   Conditions proposées
                 </h2>
                 <p className="text-xs text-orange-700 leading-relaxed">
-                  {score.conditions_proposees}
+                  {score.conditions}
                 </p>
               </div>
             )}

@@ -237,7 +237,7 @@ class MoteurScoring:
         dossiers_actifs = client.dossiers.filter(
             statut__in=[
                 'BROUILLON', 'PRET_A_SOUMETTRE',
-                'SOUMIS', 'VALIDE_CHEF_1',
+                'SOUMIS', 'VALIDE_CHEF_COMMERCIAL',
                 'EN_ANALYSE_1', 'EN_ANALYSE_2',
             ]
         )
