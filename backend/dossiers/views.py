@@ -455,30 +455,85 @@ def upload_document(request, pk):
 @permission_classes([IsAuthenticated])
 def stats_dashboard(request):
     """
-    Retourne les statistiques pour le tableau de bord.
+    Retourne les statistiques pour le tableau de bord,
+    adaptées au rôle de l'utilisateur connecté.
 
     GET /api/dashboard/stats/
     """
+    user = request.user
 
-    user     = request.user
-    queryset = Dossier.objects.all()
-
-    # Filtre selon le rôle
+    # Commercial : statistiques sur son propre portefeuille
     if user.est_commercial:
-        queryset = queryset.filter(commercial=user)
+        queryset = Dossier.objects.filter(commercial=user)
+        return Response({
+            'mode': 'PORTEFEUILLE',
+            'dossiers_en_cours': queryset.exclude(
+                statut__in=['APPROUVE', 'REJETE', 'BROUILLON']
+            ).count(),
+            'dossiers_approuves': queryset.filter(statut='APPROUVE').count(),
+            'dossiers_rejetes':   queryset.filter(statut='REJETE').count(),
+            'montant_total':      queryset.filter(statut='APPROUVE').aggregate(
+                total=Sum('montant_sollicite')
+            )['total'] or 0,
+        })
 
-    stats = {
+    #  Rôles "file d'attente" : ce qui les attend, pas les totaux entreprise 
+    FILTRES_PAR_ROLE = {
+        'CHEF_AGENCE_COMMERCIALE': {'statut': Dossier.Statut.SOUMIS},
+        'CHEF_AGENCE_ANALYSE':     {'statut': Dossier.Statut.ANALYSE_TERMINEE},
+        'COMITE':                  {'statut': Dossier.Statut.EN_COMITE},
+        'DIRECTION':               {'statut': Dossier.Statut.EN_DECISION},
+    }
+
+    if user.role in FILTRES_PAR_ROLE:
+        en_attente = Dossier.objects.filter(**FILTRES_PAR_ROLE[user.role])
+        plus_ancien = en_attente.order_by('soumis_le').first()
+        return Response({
+            'mode': 'FILE_ATTENTE',
+            'dossiers_en_attente':   en_attente.count(),
+            'montant_en_attente':    en_attente.aggregate(
+                total=Sum('montant_sollicite')
+            )['total'] or 0,
+            'plus_ancien_jours':     (
+                (timezone.now() - plus_ancien.soumis_le).days
+                if plus_ancien and plus_ancien.soumis_le else None
+            ),
+        })
+
+    if user.est_analyste:
+        from django.db.models import OuterRef, Subquery
+        dernier_assigne = ValidationDossier.objects.filter(
+            dossier=OuterRef('pk')
+        ).order_by('-date').values('assigne_a')[:1]
+
+        en_attente = Dossier.objects.filter(
+            statut__in=[Dossier.Statut.EN_ANALYSE_1, Dossier.Statut.EN_ANALYSE_2]
+        ).annotate(
+            dernier_assigne_id=Subquery(dernier_assigne)
+        ).filter(dernier_assigne_id=user.id)
+
+        return Response({
+            'mode': 'FILE_ATTENTE',
+            'dossiers_en_attente': en_attente.count(),
+            'montant_en_attente':  en_attente.aggregate(
+                total=Sum('montant_sollicite')
+            )['total'] or 0,
+            'plus_ancien_jours':   None,
+        })
+
+    # Administrateur : vue d'ensemble entreprise (seul rôle légitime pour ça) 
+    queryset = Dossier.objects.all()
+    return Response({
+        'mode': 'ENTREPRISE',
         'dossiers_en_cours': queryset.exclude(
             statut__in=['APPROUVE', 'REJETE', 'BROUILLON']
         ).count(),
         'dossiers_approuves': queryset.filter(statut='APPROUVE').count(),
         'dossiers_rejetes':   queryset.filter(statut='REJETE').count(),
-        'montant_total':      queryset.filter(
-            statut='APPROUVE'
-        ).aggregate(total=Sum('montant_sollicite'))['total'] or 0,
-    }
-
-    return Response(stats)
+        'montant_total':      queryset.filter(statut='APPROUVE').aggregate(
+            total=Sum('montant_sollicite')
+        )['total'] or 0,
+    })
 
 
 @api_view(['GET', 'POST'])
@@ -491,6 +546,8 @@ def historique_salaires(request, client_pk):
     POST /api/dossiers/clients/<id>/salaires/
     """
     from .models import HistoriqueSalaire, Client
+
+    client = get_object_or_404(Client, pk=client_pk)
 
     if request.method == 'GET':
         historiques = HistoriqueSalaire.objects.filter(client=client).order_by('-date_effet')
@@ -505,47 +562,42 @@ def historique_salaires(request, client_pk):
             for h in historiques
         ]
         return Response(data)
-    
-    client = get_object_or_404(Client, pk=client_pk)
-    
-    if request.method == 'POST' and not request.user.est_commercial:
+
+    if not request.user.est_commercial:
         return Response(
             {'detail': 'Seul le commercial peut effectuer cette action.'},
             status=status.HTTP_403_FORBIDDEN
         )
 
-    elif request.method == 'POST':
-        salaire    = request.data.get('salaire')
-        date_effet = request.data.get('date_effet')
-        note       = request.data.get('note', '')
+    salaire    = request.data.get('salaire')
+    date_effet = request.data.get('date_effet')
+    note       = request.data.get('note', '')
 
-        if not salaire or not date_effet:
-            return Response(
-                {'detail': 'Salaire et date d\'effet requis.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        from decimal import Decimal
-        historique = HistoriqueSalaire.objects.create(
-            client         = client,
-            salaire        = Decimal(str(salaire)),
-            date_effet     = date_effet,
-            note           = note,
-            enregistre_par = request.user,
+    if not salaire or not date_effet:
+        return Response(
+            {'detail': 'Salaire et date d\'effet requis.'},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
-        # Mettre à jour le salaire actuel du client
-        client.salaire_net = historique.salaire
-        client.save()
+    from decimal import Decimal
+    historique = HistoriqueSalaire.objects.create(
+        client         = client,
+        salaire        = Decimal(str(salaire)),
+        date_effet     = date_effet,
+        note           = note,
+        enregistre_par = request.user,
+    )
 
-        # Recalculer les scores des dossiers actifs
-        from scoring.moteur import MoteurScoring
-        scores_recalcules = MoteurScoring.recalculer_pour_client(client)
+    client.salaire_net = historique.salaire
+    client.save()
 
-        return Response({
-            'detail':           'Salaire mis à jour et scores recalculés.',
-            'scores_recalcules': len(scores_recalcules),
-        }, status=status.HTTP_201_CREATED)
+    from scoring.moteur import MoteurScoring
+    scores_recalcules = MoteurScoring.recalculer_pour_client(client)
+
+    return Response({
+        'detail':            'Salaire mis à jour et scores recalculés.',
+        'scores_recalcules': len(scores_recalcules),
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET', 'POST'])

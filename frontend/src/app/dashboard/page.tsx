@@ -6,12 +6,30 @@ import MainLayout from "@/components/layout/MainLayout";
 import api from "@/lib/axios";
 import { EtatChargement } from "@/components/ui/EtatChargement";
 
-interface StatsDashboard {
-  dossiers_en_cours:  number;
+interface StatsPortefeuille {
+  mode: "PORTEFEUILLE";
+  dossiers_en_cours: number;
   dossiers_approuves: number;
-  dossiers_rejetes:   number;
-  montant_total:      number;
+  dossiers_rejetes: number;
+  montant_total: number;
 }
+
+interface StatsFileAttente {
+  mode: "FILE_ATTENTE";
+  dossiers_en_attente: number;
+  montant_en_attente: number;
+  plus_ancien_jours: number | null;
+}
+
+interface StatsEntreprise {
+  mode: "ENTREPRISE";
+  dossiers_en_cours: number;
+  dossiers_approuves: number;
+  dossiers_rejetes: number;
+  montant_total: number;
+}
+
+type Stats = StatsPortefeuille | StatsFileAttente | StatsEntreprise;
 
 interface DossierRecent {
   id:                number;
@@ -28,18 +46,18 @@ interface RepartitionScore {
 }
 
 const COULEURS_STATUT: Record<string, string> = {
-  BROUILLON:         "bg-gray-100 text-gray-500",
-  PRET_A_SOUMETTRE:  "bg-gray-100 text-gray-600",
-  SOUMIS:            "bg-blue-50 text-blue-600",
-  VALIDE_CHEF_COMMERCIAL:     "bg-indigo-50 text-indigo-600",
-  EN_ANALYSE_1:      "bg-orange-50 text-orange-600",
-  EN_ANALYSE_2:      "bg-orange-50 text-orange-700",
-  ANALYSE_TERMINEE:  "bg-yellow-50 text-yellow-700",
-  VALIDE_CHEF_ANALYSTE:     "bg-indigo-50 text-indigo-700",
-  EN_DECISION:       "bg-purple-50 text-purple-600",
-  EN_COMITE:         "bg-pink-50 text-pink-600",
-  APPROUVE:          "bg-green-50 text-green-600",
-  REJETE:            "bg-red-50 text-red-600",   
+  BROUILLON:              "bg-gray-100 text-gray-500",
+  PRET_A_SOUMETTRE:       "bg-gray-100 text-gray-600",
+  SOUMIS:                 "bg-blue-50 text-blue-600",
+  VALIDE_CHEF_COMMERCIAL: "bg-indigo-50 text-indigo-600",
+  EN_ANALYSE_1:           "bg-orange-50 text-orange-600",
+  EN_ANALYSE_2:           "bg-orange-50 text-orange-700",
+  ANALYSE_TERMINEE:       "bg-yellow-50 text-yellow-700",
+  VALIDE_CHEF_ANALYSTE:   "bg-indigo-50 text-indigo-700",
+  EN_DECISION:            "bg-purple-50 text-purple-600",
+  EN_COMITE:              "bg-pink-50 text-pink-600",
+  APPROUVE:               "bg-green-50 text-green-600",
+  REJETE:                 "bg-red-50 text-red-600",
 };
 
 const formaterMontant = (v: number) =>
@@ -74,8 +92,53 @@ function CarteStats({
   );
 }
 
+const IconDossier = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </svg>
+);
+
+const IconCheck = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+const IconMontant = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="1" x2="12" y2="23"/>
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+  </svg>
+);
+
+const IconCroix = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="15" y1="9" x2="9" y2="15"/>
+    <line x1="9" y1="9" x2="15" y2="15"/>
+  </svg>
+);
+
+const IconHorloge = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+
 export default function DashboardPage() {
-  const [stats,       setStats]       = useState<StatsDashboard | null>(null);
+  const [stats,       setStats]       = useState<Stats | null>(null);
   const [recents,     setRecents]     = useState<DossierRecent[]>([]);
   const [repartition, setRepartition] = useState<RepartitionScore[]>([]);
   const [chargement,  setChargement]  = useState(true);
@@ -93,23 +156,12 @@ export default function DashboardPage() {
         setRecents(dossiersRes.data.results || dossiersRes.data);
         setRepartition(scoringRes.data);
       } catch {
-        // Si les endpoints stats/repartition n'existent pas encore
-        // on charge juste les dossiers récents
+        // Repli : si les endpoints stats/repartition sont indisponibles,
+        // on charge au moins les dossiers récents pour ne pas bloquer la page.
         try {
           const res = await api.get("/api/dossiers/");
           const dossiers = res.data.results || res.data;
           setRecents(dossiers.slice(0, 5));
-
-          // Stats calculées côté frontend en attendant
-          setStats({
-            dossiers_en_cours:  dossiers.filter((d: DossierRecent) =>
-              !["APPROUVE", "REJETE", "BROUILLON"].includes(d.statut)).length,
-            dossiers_approuves: dossiers.filter((d: DossierRecent) =>
-              d.statut === "APPROUVE").length,
-            dossiers_rejetes:   dossiers.filter((d: DossierRecent) =>
-              d.statut === "REJETE").length,
-            montant_total:      0,
-          });
         } catch {
           console.error("Impossible de charger les données du tableau de bord.");
         }
@@ -132,64 +184,56 @@ export default function DashboardPage() {
     <MainLayout titre="Tableau de bord">
       <div className="space-y-6">
 
-        {/* Cartes statistiques */}
-        <div className="grid grid-cols-4 gap-4">
-          <CarteStats
-            titre="Dossiers en cours"
-            valeur={stats?.dossiers_en_cours ?? "—"}
-            description="En attente de validation"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            }
-          />
-          <CarteStats
-            titre="Dossiers approuvés"
-            valeur={stats?.dossiers_approuves ?? "—"}
-            description="Total approuvés"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            }
-          />
-          <CarteStats
-            titre="Montant total"
-            valeur={stats?.montant_total
-              ? new Intl.NumberFormat("fr-FR").format(stats.montant_total) + " FCFA"
-              : "—"
-            }
-            description="Accordé ce mois"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23"/>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-              </svg>
-            }
-          />
-          <CarteStats
-            titre="Dossiers rejetés"
-            valeur={stats?.dossiers_rejetes ?? "—"}
-            description="Total rejetés"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
-            }
-          />
-        </div>
+        {/* Cartes statistiques — adaptées au rôle connecté */}
+        {stats?.mode === "FILE_ATTENTE" ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CarteStats
+              titre="En attente de votre décision"
+              valeur={stats.dossiers_en_attente}
+              description="Dossiers à traiter"
+              icon={IconDossier}
+            />
+            <CarteStats
+              titre="Montant en attente"
+              valeur={formaterMontant(stats.montant_en_attente)}
+              description="Sur les dossiers à traiter"
+              icon={IconMontant}
+            />
+            <CarteStats
+              titre="Dossier le plus ancien"
+              valeur={stats.plus_ancien_jours !== null ? `${stats.plus_ancien_jours} j` : "—"}
+              description="En attente depuis"
+              icon={IconHorloge}
+            />
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-4 gap-4">
+            <CarteStats
+              titre="Dossiers en cours"
+              valeur={stats.dossiers_en_cours}
+              description="En attente de validation"
+              icon={IconDossier}
+            />
+            <CarteStats
+              titre="Dossiers approuvés"
+              valeur={stats.dossiers_approuves}
+              description="Total approuvés"
+              icon={IconCheck}
+            />
+            <CarteStats
+              titre="Montant total"
+              valeur={formaterMontant(stats.montant_total)}
+              description="Accordé au total"
+              icon={IconMontant}
+            />
+            <CarteStats
+              titre="Dossiers rejetés"
+              valeur={stats.dossiers_rejetes}
+              description="Total rejetés"
+              icon={IconCroix}
+            />
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-3 gap-4">
 

@@ -233,6 +233,10 @@ export default function NouveauDossierPage() {
 
   return (
     <MainLayout titre="Nouveau dossier de crédit">
+      <p className="text-sm text-gray-500 mb-4">
+        Pour un client qui n&apos;a pas encore de dossier chez SCE. Cette étape crée à la fois sa fiche client et son premier dossier de crédit.
+      </p>
+      
       <div className="max-w-3xl mx-auto space-y-6">
 
         {/* Indicateur d'étapes */}

@@ -37,6 +37,20 @@ export const LABELS_ROLES: Record<string, string> = {
   ADMINISTRATEUR:          "Administrateur",
 };
 
+
+/** Couleur de badge par rôle, pour distinguer d'un coup d'œil des libellés proches
+ *  (ex. « Chef d'agence commerciale » vs « Chef d'agence analyse »). */
+export const COULEURS_ROLES: Record<string, string> = {
+  COMMERCIAL:              "text-blue-600 bg-blue-50",
+  CHEF_AGENCE_COMMERCIALE: "text-amber-600 bg-amber-50",
+  CHEF_AGENCE_ANALYSE:     "text-purple-600 bg-purple-50",
+  ANALYSTE:                "text-teal-600 bg-teal-50",
+  DIRECTION:               "text-red-600 bg-red-50",
+  COMITE:                  "text-pink-600 bg-pink-50",
+  ADMINISTRATEUR:          "text-gray-700 bg-gray-100",
+};
+
+
 /**
  * Vérifie si un rôle a accès à une route donnée.
  */

@@ -131,6 +131,10 @@ export default function NouveauPretPage() {
   const selectionnerClient = (c: any) => {
     setClient(c);
     setNouveauSalaire(String(c.salaire_net));
+    setPret((prev) => ({
+      ...prev,
+      encours_sce: String(c.encours_sce_actuel ?? 0),
+    }));
     setEtape("FORMULAIRE");
   };
 
@@ -194,6 +198,10 @@ export default function NouveauPretPage() {
 
   return (
     <MainLayout titre="Nouveau prêt — Client existant">
+      <p className="text-sm text-gray-500 mb-4">
+        Pour un client déjà enregistré. Recherchez-le par son numéro CNI pour lui créer un nouveau dossier de crédit.
+      </p>
+
       <div className="max-w-3xl mx-auto space-y-6">
 
         {/* ── ÉTAPE RECHERCHE ── */}

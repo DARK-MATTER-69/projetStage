@@ -40,11 +40,14 @@ class ClientSerializer(serializers.ModelSerializer):
             'type_employeur', 'type_employeur_display', 'nom_employeur',
             'poste_occupe', 'anciennete', 'salaire_net',
             'charges_mensuelles', 'credits_en_cours',
-            'date_versement_salaire',
+            'date_versement_salaire','encours_sce_actuel',
             'matricule', 'mode_paiement',
             'cree_le'
         ]
         read_only_fields = ['id', 'cree_le']
+        
+    def get_encours_sce_actuel(self, obj):
+        return obj.encours_sce_actuel()
 
 
 class DossierListSerializer(serializers.ModelSerializer):

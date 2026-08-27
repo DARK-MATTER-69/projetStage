@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/authStore";
-import { LABELS_ROLES } from "@/lib/roles";
+import { LABELS_ROLES, COULEURS_ROLES } from "@/lib/roles";
 
 interface ItemMenu {
   label: string;
@@ -24,11 +24,11 @@ const Icon = ({ d }: { d: string }) => (
 /** Menus par rôle */
 const MENUS: Record<string, ItemMenu[]> = {
   COMMERCIAL: [
-    { label: "Tableau de bord", href: "/dashboard",     icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
-    { label: "Mes clients",     href: "/clients",       icon: <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
-    { label: "Mes dossiers",    href: "/dossiers",      icon: <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /> },
-    { label: "Nouveau dossier", href: "/dossiers/nouveau", icon: <Icon d="M12 5v14M5 12h14" /> },
-    { label: "Nouveau prêt",    href: "/dossiers/nouveau-pret", icon: <Icon d="M12 8v8M8 12h8"/> }, 
+    { label: "Tableau de bord",           href: "/dashboard",             icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
+    { label: "Mes clients",               href: "/clients",               icon: <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
+    { label: "Mes dossiers",              href: "/dossiers",              icon: <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /> },
+    { label: "Nouveau client + dossier",  href: "/dossiers/nouveau",      icon: <Icon d="M12 5v14M5 12h14" /> },
+    { label: "Dossier (client existant)", href: "/dossiers/nouveau-pret", icon: <Icon d="M12 8v8M8 12h8"/> }, 
   ],
   CHEF_AGENCE_COMMERCIALE: [
     { label: "Tableau de bord", href: "/dashboard",  icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
@@ -144,9 +144,10 @@ export default function Sidebar() {
             <p className="text-xs font-medium text-gray-800 truncate group-hover:text-[var(--color-brand)] transition-colors">
               {utilisateur?.first_name} {utilisateur?.last_name}
             </p>
-            <p className="text-[10px] text-gray-400 truncate">
+            <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium truncate
+                              ${COULEURS_ROLES[role] || "text-gray-400 bg-gray-50"}`}>
               {LABELS_ROLES[role] || role}
-            </p>
+            </span>
           </div>
         </Link>
 

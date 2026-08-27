@@ -98,6 +98,17 @@ class Client(models.Model):
 
     def __str__(self):
         return f"{self.civilite} {self.nom} {self.prenom}"
+    
+    def encours_sce_actuel(self):
+        """
+        Somme des montants restant dus sur les dossiers de ce client
+        déjà approuvés par la SCE (encours réel, pas déclaratif).
+        """
+        from django.db.models import Sum
+        total = self.dossiers.filter(
+            statut=Dossier.Statut.APPROUVE
+        ).aggregate(total=Sum('montant_sollicite'))['total']
+        return total or 0
 
 
 class Dossier(models.Model):
