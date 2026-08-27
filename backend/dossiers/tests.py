@@ -431,3 +431,120 @@ class TestScoringMoteur(BaseCircuitTestCase):
 
         self.assertLess(score_avec_impaye.score, score_propre.score)
         
+class TestCorrectifsAudit(BaseCircuitTestCase):
+    """
+    Tests couvrant spécifiquement les failles corrigées lors de l'audit :
+    décision invalide, auto-assignation, modification par un tiers,
+    dossier verrouillé.
+    """
+
+    def _soumettre(self, dossier):
+        self.api.force_authenticate(user=self.commercial)
+        self._uploader_documents_requis(dossier)
+        self.api.post(f'/api/dossiers/{dossier.id}/soumettre/')
+        dossier.refresh_from_db()
+
+    # --- B1 : la décision doit être APPROUVE ou REJETE, rien d'autre ---
+    def test_decision_invalide_est_rejetee(self):
+        dossier = self._creer_dossier()
+        self._soumettre(dossier)
+
+        self.api.force_authenticate(user=self.chef_commercial)
+        response = self.api.post(
+            f'/api/dossiers/{dossier.id}/valider/',
+            {'decision': 'PEUT_ETRE', 'assigne_a': self.analyste1.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        dossier.refresh_from_db()
+        self.assertEqual(dossier.statut, Dossier.Statut.SOUMIS)  # inchangé
+
+    # --- B2 : un analyste ne peut pas s'auto-assigner comme 2ème signataire ---
+    def test_analyste_ne_peut_pas_s_auto_assigner(self):
+        dossier = self._creer_dossier()
+        self._soumettre(dossier)
+
+        self.api.force_authenticate(user=self.chef_commercial)
+        self.api.post(f'/api/dossiers/{dossier.id}/valider/',
+                       {'decision': 'APPROUVE', 'assigne_a': self.analyste1.id})
+
+        self.api.force_authenticate(user=self.analyste1)
+        response = self.api.post(
+            f'/api/dossiers/{dossier.id}/valider/',
+            {'decision': 'APPROUVE', 'assigne_a': self.analyste1.id},  # lui-même
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        dossier.refresh_from_db()
+        self.assertEqual(dossier.statut, Dossier.Statut.EN_ANALYSE_1)  # inchangé
+
+    # --- S1 : un commercial ne peut pas modifier le dossier d'un collègue ---
+    def test_commercial_ne_peut_pas_modifier_dossier_d_un_autre(self):
+        autre_commercial = Utilisateur.objects.create_user(
+            username='autre_commercial', password='Test@1234',
+            role=Utilisateur.Role.COMMERCIAL,
+        )
+        dossier = self._creer_dossier()
+
+        self.api.force_authenticate(user=autre_commercial)
+        response = self.api.patch(
+            f'/api/dossiers/{dossier.id}/',
+            {'montant_sollicite': '9999999'},
+        )
+        self.assertIn(response.status_code,
+                       [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        dossier.refresh_from_db()
+        self.assertNotEqual(dossier.montant_sollicite, Decimal('9999999'))
+
+    # --- S1 (bis) : un dossier verrouillé n'est plus modifiable par le commercial ---
+    def test_dossier_verrouille_non_modifiable_par_commercial(self):
+        dossier = self._creer_dossier()
+        dossier.fiche2_verrouillee = True
+        dossier.save()
+
+        self.api.force_authenticate(user=self.commercial)
+        response = self.api.patch(
+            f'/api/dossiers/{dossier.id}/',
+            {'montant_sollicite': '9999999'},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # --- S2 : un commercial ne peut pas modifier le client d'un autre commercial ---
+    def test_commercial_ne_peut_pas_modifier_client_d_un_autre(self):
+        autre_commercial = Utilisateur.objects.create_user(
+            username='autre_commercial_2', password='Test@1234',
+            role=Utilisateur.Role.COMMERCIAL,
+        )
+
+        self.api.force_authenticate(user=autre_commercial)
+        response = self.api.patch(
+            f'/api/dossiers/clients/{self.client_sce.id}/',
+            {'salaire_net': '9999999'},
+        )
+        self.assertIn(response.status_code,
+                       [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.client_sce.refresh_from_db()
+        self.assertNotEqual(self.client_sce.salaire_net, Decimal('9999999'))
+
+    # --- Bug NameError : historique_salaires en GET ne doit pas planter ---
+    def test_consultation_historique_salaires_ne_plante_pas(self):
+        self.api.force_authenticate(user=self.commercial)
+        response = self.api.get(
+            f'/api/dossiers/clients/{self.client_sce.id}/salaires/'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+
+    # --- Notification à l'acteur suivant (pas seulement au dénouement final) ---
+    def test_analyste_assigne_recoit_une_notification(self):
+        dossier = self._creer_dossier()
+        self._soumettre(dossier)
+
+        self.api.force_authenticate(user=self.chef_commercial)
+        self.api.post(f'/api/dossiers/{dossier.id}/valider/',
+                       {'decision': 'APPROUVE', 'assigne_a': self.analyste1.id})
+
+        self.assertTrue(
+            Notification.objects.filter(
+                destinataire=self.analyste1, dossier=dossier
+            ).exists()
+        )
+        
