@@ -313,46 +313,39 @@ def generer_rapport_pdf(dossier):
         if score.conditions:
             contenu.append(Spacer(1, 0.2*cm))
             contenu.append(Paragraph(f'<b>Conditions proposées :</b> {score.conditions}', style_alerte))
+             
 
-    # ── Section 4 : Circuit de validation ─────────────────
+       # ── Section 4 : Circuit de validation ─────────────────
     validations = dossier.validations.all().order_by('date')
     if validations.exists():
         contenu.append(Paragraph('4. CIRCUIT DE VALIDATION', style_section))
         contenu.append(HRFlowable(width='100%', thickness=0.5, color=COULEUR_GRIS))
         contenu.append(Spacer(1, 0.2*cm))
 
-        donnees_validations = [['Validateur', 'Rôle', 'Décision', 'Commentaire', 'Date']]
+        style_cellule = ParagraphStyle('Cellule', fontName='Helvetica', fontSize=7.5, leading=9.5)
+        style_entete  = ParagraphStyle('Entete', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=colors.white)
+
+        donnees_validations = [[
+            Paragraph(t, style_entete)
+            for t in ['Validateur', 'Rôle', 'Décision', 'Commentaire', 'Date']
+        ]]
         for v in validations:
             donnees_validations.append([
-                v.validateur.get_full_name(),
-                v.validateur.get_role_display(),
-                v.get_decision_display(),
-                v.commentaire[:50] + '...' if len(v.commentaire) > 50 else v.commentaire,
-                v.date.strftime('%d/%m/%Y %H:%M'),
+                Paragraph(v.validateur.get_full_name(), style_cellule),
+                Paragraph(v.validateur.get_role_display(), style_cellule),
+                Paragraph(v.get_decision_display(), style_cellule),
+                Paragraph(v.commentaire, style_cellule),
+                Paragraph(v.date.strftime('%d/%m/%Y %H:%M'), style_cellule),
             ])
 
         table_validations = Table(
-            donnees_validations, colWidths=[3.5*cm, 3*cm, 2.5*cm, 5*cm, 3*cm],
+            donnees_validations, colWidths=[2.8*cm, 3.2*cm, 2*cm, 6*cm, 3*cm],
             style=TableStyle([
-                ('FONTSIZE',       (0,0), (-1,-1), 7),
-                ('BACKGROUND',     (0,0), (-1,0), COULEUR_PRINCIPALE),
-                ('TEXTCOLOR',      (0,0), (-1,0), colors.white),
-                ('FONTNAME',       (0,0), (-1,0), 'Helvetica-Bold'),
-                ('GRID',           (0,0), (-1,-1), 0.3, colors.lightgrey),
+                ('BACKGROUND', (0,0), (-1,0), COULEUR_PRINCIPALE),
+                ('GRID',       (0,0), (-1,-1), 0.3, colors.lightgrey),
                 ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, COULEUR_GRIS]),
-                ('PADDING',        (0,0), (-1,-1), 4),
+                ('VALIGN',     (0,0), (-1,-1), 'TOP'),
+                ('PADDING',    (0,0), (-1,-1), 5),
             ])
         )
         contenu.append(table_validations)
-
-    # ── Pied de page (contenu, en plus du canvas onPage) ──
-    contenu.append(Spacer(1, 0.8*cm))
-    contenu.append(HRFlowable(width='100%', thickness=1, color=COULEUR_SECONDAIRE, spaceAfter=8))
-    contenu.append(Paragraph(
-        f'Document généré le {datetime.now().strftime("%d/%m/%Y à %H:%M")} '
-        f'— Plateforme SCE — Confidentiel',
-        ParagraphStyle('Pied', parent=styles['Normal'], fontSize=7, textColor=colors.grey)
-    ))
-
-    doc.build(contenu, onFirstPage=_entete_pied_de_page, onLaterPages=_entete_pied_de_page)
-    return buffer.getvalue()

@@ -18,6 +18,7 @@ class ScoreCredit(models.Model):
         FAVORABLE    = 'FAVORABLE',    'Favorable'
         CONDITIONNEL = 'CONDITIONNEL', 'Favorable sous conditions'
         DEFAVORABLE  = 'DEFAVORABLE',  'Défavorable'
+        INELIGIBLE   = 'INELIGIBLE',   'Inéligible (bloqué avant analyse)'
 
     dossier     = models.OneToOneField(
         Dossier,
@@ -57,21 +58,41 @@ class ScoreCredit(models.Model):
         verbose_name='Délai de sécurité (jours)',
         help_text='Écart entre le jour de salaire et le jour de prélèvement'
     )
-    score_stabilite_emploi  = models.PositiveIntegerField(
-        verbose_name='Score stabilité emploi (/25)',
-        help_text='Basé sur le type d\'employeur et l\'ancienneté'
+    score_quotite            = models.PositiveIntegerField(
+        verbose_name='Score quotité (/25)', 
+        default=0
     )
-    score_capacite_remboursement = models.PositiveIntegerField(
-        verbose_name='Score capacité de remboursement (/25)',
-        help_text='Basé sur le taux d\'endettement et le ratio mensualité/salaire'
+    score_historique_sce     = models.PositiveIntegerField(
+        verbose_name='Score historique SCE (/20)', 
+        default=0
     )
-    score_profil_client     = models.PositiveIntegerField(
-        verbose_name='Score profil client (/25)',
-        help_text='Basé sur l\'âge, l\'ancienneté et le délai de sécurité'
+    score_stabilite          = models.PositiveIntegerField(
+        verbose_name='Score stabilité revenu (/15)', 
+        default=0
     )
-    score_dossier           = models.PositiveIntegerField(
-        verbose_name='Score dossier (/25)',
-        help_text='Basé sur la complétude des documents et le type de crédit'
+    score_montant_vs_salaire = models.PositiveIntegerField(
+        verbose_name='Score montant vs salaire (/15)', 
+        default=0
+    )
+    score_dossier            = models.PositiveIntegerField(
+        verbose_name='Score complétude dossier (/10)', 
+        default=0
+    )
+    score_fidelite           = models.PositiveIntegerField(
+        verbose_name='Score fidélité relation (/10)', 
+        default=0
+    )
+    score_marge_securite     = models.PositiveIntegerField(
+        verbose_name='Score marge de sécurité (/5)', 
+        default=0
+    )
+    eligible                 = models.BooleanField(
+        default=True, 
+        verbose_name='Dossier éligible (a passé le gardien)'
+    )
+    motif_ineligibilite      = models.TextField(
+        blank=True, 
+        verbose_name='Motif d\'inéligibilité'
     )
 
    # Recommandation et conditions du moteur de scoring
@@ -115,3 +136,62 @@ class ScoreCredit(models.Model):
             self.NiveauRisque.CRITIQUE: 'darkred',
         }
         return couleurs.get(self.niveau_risque, 'gray')
+    
+
+class TraceDecisionIA(models.Model):
+    """
+    Photographie immuable du score au moment précis d'une décision humaine.
+    Objectifs :
+    - Traçabilité : prouver sur quelle base une décision a été rendue,
+      même si le barème ou le modèle ML évoluent ensuite.
+    - Apprentissage : capturer les désaccords entre la décision IA et la
+      décision humaine, pour analyse ultérieure (le modèle avait-il raison ?).
+    """
+
+    dossier = models.ForeignKey(
+        'dossiers.Dossier',
+        on_delete=models.CASCADE,
+        related_name='traces_decision_ia',
+        verbose_name='Dossier',
+    )
+    validateur = models.ForeignKey(
+        'accounts.Utilisateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name='Validateur',
+    )
+    etape = models.CharField(max_length=30, verbose_name='Étape du circuit')
+
+    # Snapshot du score au moment de la décision
+    score_fige          = models.PositiveIntegerField(verbose_name='Score figé (/100)')
+    niveau_risque_fige  = models.CharField(max_length=10, verbose_name='Niveau de risque figé')
+    decision_ia_figee   = models.CharField(max_length=15, verbose_name='Décision IA figée')
+    score_regles_fige   = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='Score règles métier (avant fusion ML)'
+    )
+    score_ml_fige       = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name='Score ML brut (probabilité de remboursement, %)'
+    )
+    version_modele_ml   = models.CharField(
+        max_length=50, blank=True, verbose_name='Version du modèle ML utilisé'
+    )
+
+    # Décision humaine réelle
+    decision_humaine = models.CharField(max_length=10, verbose_name='Décision humaine (APPROUVE/REJETE)')
+    desaccord        = models.BooleanField(
+        default=False,
+        verbose_name='Désaccord IA / humain',
+        help_text="True si la décision humaine contredit la recommandation IA",
+    )
+
+    date_decision = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Trace de décision IA'
+        verbose_name_plural = 'Traces de décisions IA'
+        ordering = ['-date_decision']
+
+    def __str__(self):
+        marqueur = ' [DÉSACCORD]' if self.desaccord else ''
+        return f'Trace dossier {self.dossier_id} — {self.date_decision:%d/%m/%Y}{marqueur}'
