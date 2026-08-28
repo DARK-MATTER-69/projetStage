@@ -94,6 +94,26 @@ class ScoreCredit(models.Model):
         blank=True, 
         verbose_name='Motif d\'inéligibilité'
     )
+    
+    score_regles       = models.PositiveIntegerField(
+        default=0, 
+        verbose_name='Score règles métier seul (/100)'
+    )
+    score_ml           = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, blank=True, verbose_name='Score ML brut (probabilité remboursement %)'
+    )
+    version_modele_ml  = models.CharField(
+        max_length=50, 
+        blank=True, 
+        verbose_name='Version du modèle ML utilisé'
+    )
+    facteurs_ml        = models.JSONField(
+        default=list, 
+        blank=True, 
+        verbose_name='Facteurs déterminants du modèle ML'
+    )
 
    # Recommandation et conditions du moteur de scoring
     recommandation       = models.TextField(
